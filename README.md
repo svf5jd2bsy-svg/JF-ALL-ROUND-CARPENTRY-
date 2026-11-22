@@ -139,6 +139,48 @@ you opened the page directly from disk, use **Open a local manifest** to select
 `Organisation/latest/File-Library-Manifest.json`. The repository root also links
 to the index, so a GitHub Pages root deployment opens the library directly.
 
+## Local Outlook, iPhone, and full-device workflow
+
+Run the review-first local control centre from a Windows PC connected to the
+external drive and signed into iCloud:
+
+```powershell
+.\scripts\RUN-JF-LIFE-LOCAL.cmd `
+  -ExternalDPath "D:\" `
+  -ICloudPath "$env:USERPROFILE\iCloudDrive\JF LIFE"
+```
+
+This inventories local files, finds exact duplicate groups, creates a
+recovery-copy plan, and opens a private dashboard under
+`%LOCALAPPDATA%\JF LIFE`. It does not delete or move source files.
+Add any other PC folder with repeatable
+`-AdditionalSource "Documents=C:\Users\<you>\Documents"` arguments.
+After marking a duplicate group's `approved` and candidate `decision` in
+`recovery-plan.json`, run with `-ApplyRecoveryCopies` to create a verified backup
+copy. The originals remain unchanged, and the existing review plan is preserved
+until `-RefreshRecoveryPlan` is supplied.
+
+To connect the real Outlook mailbox, first complete the local Microsoft public
+client setup in `Tools/OUTLOOK-JF-LIFE-SETUP.md`, then supply
+`-OutlookClientId "<APPLICATION-CLIENT-ID>"`. Device sign-in happens on the PC.
+Outlook actions are proposed only until you review the private plan and run with
+`-ApplyOutlookActions`.
+
+To carry files and tasks onto the iPhone, follow
+`Tools/IPHONE-JF-LIFE-SETUP.md`. Outlook/iCloud sync carries approved mail,
+calendar, and To Do changes; alarms, Focus, widgets, and Home Screen placement
+require the on-device checklist.
+
+Optionally copy reviewed files into the generated `Library/` with `-BuildLibrary`.
+Use `-PublishLibrary` only for an explicitly selected, reviewed set:
+
+```powershell
+.\scripts\RUN-JF-LIFE-LOCAL.cmd `
+  -ExternalDPath "D:\" `
+  -IncludePattern "*JF LIFE*","*.pdf" `
+  -BuildLibrary
+```
+
 ## Copilot agents and plugin
 
 This repository includes two automatically discoverable agents in

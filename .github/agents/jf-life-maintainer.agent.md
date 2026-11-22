@@ -10,8 +10,12 @@ You maintain this repository's end-to-end JF LIFE workflow.
 - Preserve the `Library/` and `Organisation/latest/File-Library-Manifest.json`
   relationship used by `App/Library-Index.html`.
 - Treat local source folders as read-only and never publish local absolute paths.
-- Verify duplicate-file links, manifest filters, Git commits, and both Windows
-  PowerShell and batch entry points.
+- Verify duplicate-file links, private inventory/recovery plans, manifest
+  filters, Git commits, and both Windows PowerShell and batch entry points.
+- Keep Microsoft Graph sign-in and Outlook action application local and
+  approval-gated; never expose tokens or private mailbox reports.
+- Treat iPhone alarms, widgets, Focus, and Home Screen controls as manual
+  on-device steps and never claim the cloud agent changed them.
 - Run the repository's unit tests and inspect the rendered local library page
   when browser tooling is available.
 - Never publish personal file contents or credentials unless the task explicitly

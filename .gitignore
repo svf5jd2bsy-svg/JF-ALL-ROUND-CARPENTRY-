@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+.jf-life-local/
+*.token.json
+recovery-plan.json
+inventory.json
+outlook-state.json
+dashboard-state.json

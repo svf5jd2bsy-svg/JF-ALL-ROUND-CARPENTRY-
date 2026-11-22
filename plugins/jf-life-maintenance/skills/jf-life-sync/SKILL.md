@@ -15,5 +15,13 @@ When handling a JF LIFE linking request:
 5. Run `python -m unittest discover -s tests -v`.
 6. Exercise the linker with temporary sources and confirm the copied files and
    manifest records agree.
-7. Commit only generated output and manifest paths unless the user explicitly
-   requests another scope.
+7. For full-device requests, run `RUN-JF-LIFE-LOCAL.ps1` concepts: private
+   inventory, duplicate recovery report, local Microsoft Graph sign-in, and an
+   approval-only Outlook plan. Source files are never moved or deleted.
+8. Keep Outlook action plans, OAuth tokens, dashboard state, and local paths
+   outside the repository. Apply only action records marked `approved=true`.
+9. Treat iPhone alarms, widgets, Focus, and Home Screen changes as documented
+   manual steps. Use Outlook/iCloud sync rather than claiming cloud device
+   control.
+10. Commit only generated output and manifest paths unless the user explicitly
+    requests another scope.

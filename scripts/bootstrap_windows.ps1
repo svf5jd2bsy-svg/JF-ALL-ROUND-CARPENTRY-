@@ -7,7 +7,9 @@ param(
     [string[]]$IncludePattern = @(),
     [string[]]$ExcludePattern = @(),
     [switch]$NoPush,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$LocalControl,
+    [string]$OutlookClientId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -360,3 +362,20 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "JF LIFE linking completed."
+
+if ($LocalControl) {
+    $localArgs = @(
+        "-ICloudPath", $ICloudPath,
+        "-ExternalDPath", $ExternalDPath,
+        "-NoDashboard"
+    )
+    if (-not [string]::IsNullOrWhiteSpace($OutlookClientId)) {
+        $localArgs += @("-OutlookClientId", $OutlookClientId)
+    }
+    powershell.exe -NoProfile -ExecutionPolicy Bypass `
+        -File (Join-Path $RepoDir "scripts/RUN-JF-LIFE-LOCAL.ps1") `
+        @localArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "JF LIFE local control step failed with exit code $LASTEXITCODE"
+    }
+}

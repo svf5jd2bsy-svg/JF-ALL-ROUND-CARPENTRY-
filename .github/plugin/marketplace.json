@@ -2,7 +2,7 @@
   "name": "jf-life-tools",
   "metadata": {
     "description": "Repository-local Copilot tools for the JF LIFE library",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "owner": {
     "name": "JF ALL ROUND CARPENTRY"
@@ -11,7 +11,7 @@
     {
       "name": "jf-life-maintenance",
       "description": "Agent and skill for safely linking, validating, and maintaining the JF LIFE library.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": "plugins/jf-life-maintenance"
     }
   ]
