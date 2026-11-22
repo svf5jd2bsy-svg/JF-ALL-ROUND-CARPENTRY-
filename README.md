@@ -141,6 +141,15 @@ to the index, so a GitHub Pages root deployment opens the library directly.
 
 ## Local Outlook, iPhone, and full-device workflow
 
+Use the Windows companion app shell:
+
+```powershell
+.\scripts\RUN-JF-WINDOWS-COMPANION.cmd
+```
+
+This is a desktop app window (not a web page) for inventory, Outlook connect,
+approval workflow execution, dashboard generation, and companion API hosting.
+
 Run the review-first local control centre from a Windows PC connected to the
 external drive and signed into iCloud:
 
@@ -180,6 +189,24 @@ Use `-PublishLibrary` only for an explicitly selected, reviewed set:
   -IncludePattern "*JF LIFE*","*.pdf" `
   -BuildLibrary
 ```
+
+## iPhone app shell
+
+An iPhone-first app shell lives in `mobile/jf-life-mobile` and pairs to the
+Windows companion API over your local network.
+
+1. Start companion API from the desktop app or run:
+   ```powershell
+   python .\scripts\jf_life_companion_api.py --state-dir "$env:LOCALAPPDATA\JF LIFE"
+   ```
+2. Start mobile app (on a dev machine with Expo):
+   ```bash
+   cd mobile/jf-life-mobile
+   npm install
+   npm run start
+   ```
+3. Open on iPhone via Expo, enter companion host + pairing token, then run
+   inventory/recovery/outlook actions from the app.
 
 ## Copilot agents and plugin
 

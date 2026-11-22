@@ -6,3 +6,5 @@ recovery-plan.json
 inventory.json
 outlook-state.json
 dashboard-state.json
+mobile/**/node_modules/
+mobile/**/.expo/

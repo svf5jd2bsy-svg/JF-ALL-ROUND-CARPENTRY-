@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "JF LIFE",
+    "slug": "jf-life-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#111827"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jflife.mobile"
+    }
+  }
+}
