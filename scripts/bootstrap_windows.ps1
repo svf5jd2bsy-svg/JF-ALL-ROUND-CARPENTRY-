@@ -4,7 +4,10 @@ param(
     [string]$ICloudPath = "$env:USERPROFILE\iCloudDrive\JF LIFE",
     [string]$ExternalDPath = "D:\JF LIFE",
     [switch]$IncludeLarge,
-    [switch]$NoPush
+    [string[]]$IncludePattern = @(),
+    [string[]]$ExcludePattern = @(),
+    [switch]$NoPush,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -276,6 +279,7 @@ $repoRootResolved = (Resolve-Path -LiteralPath $RepoDir).Path
 $linkArgs = @("scripts/jf_life_link.py")
 
 $sources = @()
+$sourceCounter = 0
 $sourcePathSet = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::OrdinalIgnoreCase)
 $candidateSources = Resolve-SourceCandidates -PreferredICloudPath $ICloudPath -PreferredExternalPath $ExternalDPath
 
@@ -293,8 +297,10 @@ foreach ($candidate in $candidateSources) {
                     continue
                 }
                 if ($sourcePathSet.Add($childPath)) {
-                    $sources += @("--source", "$($candidate.Label)=$childPath")
-                    Write-Host "Using source [$($candidate.Label)]: $childPath"
+                    $sourceCounter += 1
+                    $sourceLabel = "$($candidate.Label)-$sourceCounter"
+                    $sources += @("--source", "$sourceLabel=$childPath")
+                    Write-Host "Using source [$sourceLabel]: $childPath"
                 }
             }
             continue
@@ -306,8 +312,10 @@ foreach ($candidate in $candidateSources) {
     }
 
     if ($sourcePathSet.Add($resolved)) {
-        $sources += @("--source", "$($candidate.Label)=$resolved")
-        Write-Host "Using source [$($candidate.Label)]: $resolved"
+        $sourceCounter += 1
+        $sourceLabel = "$($candidate.Label)-$sourceCounter"
+        $sources += @("--source", "$sourceLabel=$resolved")
+        Write-Host "Using source [$sourceLabel]: $resolved"
     }
 }
 
@@ -332,7 +340,16 @@ $linkArgs += $sources
 if ($IncludeLarge) {
     $linkArgs += "--include-large"
 }
-if (-not $NoPush) {
+if ($DryRun) {
+    $linkArgs += "--dry-run"
+}
+foreach ($pattern in $IncludePattern) {
+    $linkArgs += @("--include", $pattern)
+}
+foreach ($pattern in $ExcludePattern) {
+    $linkArgs += @("--exclude", $pattern)
+}
+if (-not $NoPush -and -not $DryRun) {
     $linkArgs += @("--git-commit", "--git-push")
 }
 

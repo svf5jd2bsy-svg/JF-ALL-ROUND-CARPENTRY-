@@ -53,6 +53,9 @@
         <option value="all">All</option>
       </select>
     </label>
+    <label>Open a local manifest
+      <input id="manifestPicker" type="file" accept=".json,application/json">
+    </label>
   </div>
 
   <p id="status" class="muted">Loading manifest...</p>
@@ -82,9 +85,11 @@
   const searchInput = document.getElementById("search");
   const areaFilter = document.getElementById("areaFilter");
   const sourceFilter = document.getElementById("sourceFilter");
+  const manifestPicker = document.getElementById("manifestPicker");
   const statusEl = document.getElementById("status");
 
   let records = [];
+  let outputRoot = "Library";
 
   function formatBytes(value) {
     if (!Number.isFinite(value) || value <= 0) return "0 B";
@@ -99,7 +104,7 @@
   }
 
   function buildSourceFilter(items) {
-    const labels = Array.from(new Set(items.map((item) => item.source_label))).sort((a, b) => a.localeCompare(b));
+    const labels = Array.from(new Set(items.map((item) => item.source_label).filter(Boolean))).sort((a, b) => a.localeCompare(b));
     sourceFilter.innerHTML = '<option value="all">All</option>';
     labels.forEach((label) => {
       const opt = document.createElement("option");
@@ -107,6 +112,20 @@
       opt.textContent = label;
       sourceFilter.appendChild(opt);
     });
+  }
+
+  function getLinkedTarget(item) {
+    const target = item.deduplicated_to || item.target_path || "";
+    const parts = `${outputRoot}/${target}`.split("/").filter((part) => part && part !== ".");
+    if (parts.some((part) => part === "..")) return null;
+    return `../${parts.map(encodeURIComponent).join("/")}`;
+  }
+
+  function addText(parent, value, className) {
+    const element = document.createElement(className ? "div" : "span");
+    if (className) element.className = className;
+    element.textContent = value == null ? "" : String(value);
+    parent.appendChild(element);
   }
 
   function render() {
@@ -126,14 +145,25 @@
       visible += 1;
       const row = document.createElement("tr");
       const status = item.deduplicated_to ? `Deduplicated to ${item.deduplicated_to}` : "Linked";
-      const href = `../${item.target_path}`;
-      row.innerHTML = `
-        <td><a href="${href}">${item.relative_path.split("/").pop()}</a><div class="muted">${item.relative_path}</div></td>
-        <td>${item.area}</td>
-        <td>${item.source_label}</td>
-        <td>${formatBytes(item.size_bytes)}</td>
-        <td>${status}</td>
-      `;
+      const fileCell = document.createElement("td");
+      const href = getLinkedTarget(item);
+      const fileName = item.relative_path.split("/").pop();
+      if (href) {
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = fileName;
+        fileCell.appendChild(link);
+      } else {
+        addText(fileCell, fileName);
+      }
+      addText(fileCell, item.relative_path, "muted");
+      row.appendChild(fileCell);
+      const values = [item.area, item.source_label, formatBytes(item.size_bytes), status];
+      values.forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
       rowsElement.appendChild(row);
     });
 
@@ -142,27 +172,47 @@
     statusEl.className = "muted";
   }
 
+  function applyManifest(manifest, sourceName) {
+    if (!manifest || !Array.isArray(manifest.files)) {
+      throw new Error("The selected JSON is not a JF LIFE file manifest.");
+    }
+    records = manifest.files;
+    outputRoot = typeof manifest.output_root === "string" && manifest.output_root
+      ? manifest.output_root
+      : "Library";
+    const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+    document.getElementById("totalFiles").textContent = `${records.length} files`;
+    document.getElementById("totalSize").textContent = formatBytes(totalBytes);
+    buildSourceFilter(records);
+    render();
+    if (sourceName) statusEl.textContent = `Loaded ${records.length} files from ${sourceName}`;
+  }
+
   async function loadManifest() {
     for (const candidate of manifestCandidates) {
       try {
         const res = await fetch(candidate, { cache: "no-store" });
         if (!res.ok) continue;
-        const manifest = await res.json();
-        records = Array.isArray(manifest.files) ? manifest.files : [];
-        const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
-        document.getElementById("totalFiles").textContent = `${records.length} files`;
-        document.getElementById("totalSize").textContent = formatBytes(totalBytes);
-        buildSourceFilter(records);
-        render();
+        applyManifest(await res.json());
         return;
       } catch (error) {
         // Try next candidate path.
       }
     }
-    statusEl.textContent = "Manifest not found. Run scripts/jf_life_link.py first.";
+    statusEl.textContent = "Manifest not found. Run the linker, or choose File-Library-Manifest.json above.";
     statusEl.className = "error";
   }
 
+  manifestPicker.addEventListener("change", async () => {
+    const file = manifestPicker.files && manifestPicker.files[0];
+    if (!file) return;
+    try {
+      applyManifest(JSON.parse(await file.text()), file.name);
+    } catch (error) {
+      statusEl.textContent = `Could not load manifest: ${error.message}`;
+      statusEl.className = "error";
+    }
+  });
   searchInput.addEventListener("input", render);
   areaFilter.addEventListener("change", render);
   sourceFilter.addEventListener("change", render);

@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "jf-life-tools": {
+      "source": {
+        "source": "github",
+        "repo": "svf5jd2bsy-svg/JF-ALL-ROUND-CARPENTRY-"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "jf-life-maintenance@jf-life-tools": true
+  }
+}

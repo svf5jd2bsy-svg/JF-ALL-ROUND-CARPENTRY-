@@ -100,6 +100,12 @@ def parse_args() -> argparse.Namespace:
         help="Glob pattern to exclude (match against source-relative path). Repeat as needed.",
     )
     parser.add_argument(
+        "--include",
+        action="append",
+        default=[],
+        help="Only include source-relative paths matching this glob. Repeat for multiple patterns.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Scan only; no file copies, no manifest write, no git changes.",
@@ -138,12 +144,61 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def resolve_repo_path(value: str, description: str) -> Path:
+    candidate = (REPO_ROOT / Path(value)).resolve()
+    try:
+        relative = candidate.relative_to(REPO_ROOT.resolve())
+    except ValueError as exc:
+        raise ValueError(f"{description} must stay inside the repository: {value}") from exc
+    if not relative.parts:
+        raise ValueError(f"{description} cannot be the repository root.")
+    return candidate
+
+
+def validate_source_labels(sources: list[SourceSpec]) -> None:
+    labels: dict[str, str] = {}
+    for source in sources:
+        key = source.label.casefold()
+        if key in labels and labels[key] != str(source.root):
+            raise ValueError(
+                f"Source label '{source.label}' is used by more than one folder. "
+                "Choose a unique --source label."
+            )
+        labels[key] = str(source.root)
+
+
+def validate_source_destinations(sources: list[SourceSpec], destinations: list[Path]) -> None:
+    for source in sources:
+        source_path = source.root.resolve()
+        for destination in destinations:
+            try:
+                destination.relative_to(source_path)
+            except ValueError:
+                try:
+                    source_path.relative_to(destination)
+                except ValueError:
+                    continue
+            raise ValueError(
+                f"Source '{source.label}' overlaps a generated destination. "
+                "Choose separate source and output locations."
+            )
+
+
 def should_exclude(rel_path: str, patterns: list[str]) -> bool:
     rel_lower = rel_path.lower()
     for pattern in patterns:
         if fnmatch.fnmatch(rel_lower, pattern.lower()):
             return True
     return False
+
+
+def should_include(rel_path: str, patterns: list[str]) -> bool:
+    return not patterns or any(fnmatch.fnmatch(rel_path.lower(), pattern.lower()) for pattern in patterns)
+
+
+def os_error_text(exc: OSError) -> str:
+    message = exc.strerror or type(exc).__name__
+    return f"{type(exc).__name__}: {message}"
 
 
 def classify_area(source_label: str, rel_path: Path) -> str:
@@ -187,7 +242,7 @@ def is_within(path: Path, root: Path) -> bool:
     try:
         path.resolve().relative_to(root.resolve())
         return True
-    except Exception:
+    except (OSError, ValueError):
         return False
 
 
@@ -207,12 +262,35 @@ def stage_commit_push(
         ["git", "--no-pager", "add", output_root_rel.as_posix(), manifest_rel.as_posix()],
         check=True,
     )
-    staged = run_git_command(["git", "--no-pager", "diff", "--cached", "--name-only"]).stdout.strip()
+    staged = run_git_command(
+        [
+            "git",
+            "--no-pager",
+            "diff",
+            "--cached",
+            "--name-only",
+            "--",
+            output_root_rel.as_posix(),
+            manifest_rel.as_posix(),
+        ]
+    ).stdout.strip()
     if not staged:
         print("No git changes to commit.")
         return
     if do_commit:
-        subprocess.run(["git", "--no-pager", "commit", "-m", message], check=True)
+        subprocess.run(
+            [
+                "git",
+                "--no-pager",
+                "commit",
+                "-m",
+                message,
+                "--",
+                output_root_rel.as_posix(),
+                manifest_rel.as_posix(),
+            ],
+            check=True,
+        )
     if do_push:
         push_branch = branch or get_current_branch()
         subprocess.run(["git", "--no-pager", "push", "origin", push_branch], check=True)
@@ -222,12 +300,17 @@ def main() -> int:
     args = parse_args()
     os.chdir(REPO_ROOT)
 
-    output_root_rel = Path(args.output_root)
-    manifest_rel = Path(args.manifest)
-    output_root_abs = (REPO_ROOT / output_root_rel).resolve()
-    manifest_abs = (REPO_ROOT / manifest_rel).resolve()
-
-    source_specs = [parse_source(value) for value in args.source]
+    try:
+        output_root_rel = Path(args.output_root)
+        manifest_rel = Path(args.manifest)
+        output_root_abs = resolve_repo_path(args.output_root, "Output root")
+        manifest_abs = resolve_repo_path(args.manifest, "Manifest path")
+        source_specs = [parse_source(value) for value in args.source]
+        validate_source_labels(source_specs)
+        validate_source_destinations(source_specs, [output_root_abs, manifest_abs])
+    except (argparse.ArgumentTypeError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
 
     max_file_bytes = sys.maxsize if args.include_large else DEFAULT_MAX_FILE_BYTES
     hash_to_target: dict[str, str] = {}
@@ -251,14 +334,12 @@ def main() -> int:
             skipped.append(
                 {
                     "source_label": source.label,
-                    "source_root": str(source_root),
                     "reason": "source_missing",
                 }
             )
             source_results.append(
                 {
                     "label": source.label,
-                    "root": str(source_root),
                     "status": "missing",
                     "files_seen": 0,
                 }
@@ -279,7 +360,6 @@ def main() -> int:
                 skipped.append(
                     {
                         "source_label": source.label,
-                        "source_root": str(source_root),
                         "relative_path": rel_posix,
                         "reason": "inside_repo_skipped",
                     }
@@ -290,9 +370,18 @@ def main() -> int:
                 skipped.append(
                     {
                         "source_label": source.label,
-                        "source_root": str(source_root),
                         "relative_path": rel_posix,
                         "reason": "excluded",
+                    }
+                )
+                continue
+
+            if not should_include(rel_posix, args.include):
+                skipped.append(
+                    {
+                        "source_label": source.label,
+                        "relative_path": rel_posix,
+                        "reason": "not_included",
                     }
                 )
                 continue
@@ -303,10 +392,9 @@ def main() -> int:
                 skipped.append(
                     {
                         "source_label": source.label,
-                        "source_root": str(source_root),
                         "relative_path": rel_posix,
                         "reason": "stat_failed",
-                        "error": str(exc),
+                        "error": os_error_text(exc),
                     }
                 )
                 continue
@@ -315,7 +403,6 @@ def main() -> int:
                 skipped.append(
                     {
                         "source_label": source.label,
-                        "source_root": str(source_root),
                         "relative_path": rel_posix,
                         "reason": "file_too_large",
                         "size_bytes": stat.st_size,
@@ -330,10 +417,9 @@ def main() -> int:
                 skipped.append(
                     {
                         "source_label": source.label,
-                        "source_root": str(source_root),
                         "relative_path": rel_posix,
                         "reason": "hash_failed",
-                        "error": str(exc),
+                        "error": os_error_text(exc),
                     }
                 )
                 continue
@@ -348,36 +434,36 @@ def main() -> int:
                 files_deduped += 1
             else:
                 target_abs = output_root_abs / target_rel
-                if not args.dry_run:
-                    target_abs.parent.mkdir(parents=True, exist_ok=True)
-                    try:
+                try:
+                    if not args.dry_run:
+                        target_abs.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(absolute_file, target_abs)
-                    except OSError as exc:
-                        skipped.append(
-                            {
-                                "source_label": source.label,
-                                "source_root": str(source_root),
-                                "relative_path": rel_posix,
-                                "reason": "copy_failed",
-                                "error": str(exc),
-                                "target_path": target_posix,
-                            }
-                        )
-                        if getattr(exc, "winerror", None) == 112 or getattr(exc, "errno", None) == 28:
-                            stop_processing = True
-                            stop_reason = "disk_full"
-                        continue
+                except OSError as exc:
+                    skipped.append(
+                        {
+                            "source_label": source.label,
+                            "relative_path": rel_posix,
+                            "reason": "copy_failed",
+                            "error": os_error_text(exc),
+                            "target_path": target_posix,
+                        }
+                    )
+                    if getattr(exc, "winerror", None) == 112 or getattr(exc, "errno", None) == 28:
+                        stop_processing = True
+                        stop_reason = "disk_full"
+                    continue
                 hash_to_target[digest] = target_posix
                 files_copied += 1
                 bytes_copied += stat.st_size
 
+            linked_target = duplicate_of or target_posix
+
             file_records.append(
                 {
                     "source_label": source.label,
-                    "source_root": str(source_root),
                     "relative_path": rel_posix,
                     "area": area,
-                    "target_path": target_posix,
+                    "target_path": linked_target,
                     "size_bytes": stat.st_size,
                     "modified_utc": dt.datetime.fromtimestamp(
                         stat.st_mtime, tz=dt.timezone.utc
@@ -393,7 +479,6 @@ def main() -> int:
         source_results.append(
             {
                 "label": source.label,
-                "root": str(source_root),
                 "status": source_status,
                 "files_seen": source_seen,
             }
@@ -436,11 +521,14 @@ def main() -> int:
         )
     print(f"Manifest written to {manifest_rel.as_posix()}")
 
+    if stop_processing:
+        return 1
+
     if args.git_commit or args.git_push:
         stage_commit_push(
             output_root_rel=output_root_rel,
             manifest_rel=manifest_rel,
-            do_commit=args.git_commit,
+            do_commit=True,
             do_push=args.git_push,
             branch=args.branch,
             message=args.commit_message,
