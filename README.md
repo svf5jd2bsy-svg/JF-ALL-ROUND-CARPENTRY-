@@ -57,6 +57,16 @@ powershell -ExecutionPolicy Bypass -File $f `
   -IncludeLarge
 ```
 
+If bootstrap says no source folders found, run:
+
+```powershell
+Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -in @('JF LIFE','JF_LIFE','JF-LIFE','JF_LIFE_Local_Sources','JF LIFE Local Sources') } |
+  Select-Object -ExpandProperty FullName
+```
+
+Then rerun bootstrap with explicit paths from the output.
+
 ## Useful options
 
 ```powershell

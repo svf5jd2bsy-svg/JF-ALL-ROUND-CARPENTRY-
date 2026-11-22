@@ -59,7 +59,13 @@ function Find-NamedDirectories([string]$SearchRoot, [string[]]$Names, [int]$MaxD
 }
 
 function Resolve-SourceCandidates([string]$PreferredICloudPath, [string]$PreferredExternalPath) {
-    $names = @("JF LIFE", "JF_LIFE", "JF-LIFE")
+    $names = @(
+        "JF LIFE",
+        "JF_LIFE",
+        "JF-LIFE",
+        "JF_LIFE_Local_Sources",
+        "JF LIFE Local Sources"
+    )
     $candidates = @(
         @{ Label = "iCloud"; Path = $PreferredICloudPath },
         @{ Label = "ExternalD"; Path = $PreferredExternalPath },
@@ -68,7 +74,9 @@ function Resolve-SourceCandidates([string]$PreferredICloudPath, [string]$Preferr
         @{ Label = "iCloud"; Path = "$env:USERPROFILE\iCloud Drive\JF LIFE" },
         @{ Label = "Local"; Path = "$env:USERPROFILE\Documents\JF LIFE" },
         @{ Label = "Local"; Path = "$env:USERPROFILE\Desktop\JF LIFE" },
-        @{ Label = "Local"; Path = "$env:USERPROFILE\Downloads\JF LIFE" }
+        @{ Label = "Local"; Path = "$env:USERPROFILE\Downloads\JF LIFE" },
+        @{ Label = "Downloads"; Path = "$env:USERPROFILE\Downloads\JF_LIFE_Local_Sources" },
+        @{ Label = "Downloads"; Path = "$env:USERPROFILE\Downloads\JF_LIFE_Local_Sources_Windows\JF_LIFE_Local_Sources" }
     )
 
     foreach ($root in Get-DriveRoots) {
@@ -184,7 +192,7 @@ Checked defaults:
 
 Find folders quickly, then rerun with explicit paths:
 Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -in @('JF LIFE','JF_LIFE','JF-LIFE') } |
+  Where-Object { `$_.Name -in @('JF LIFE','JF_LIFE','JF-LIFE','JF_LIFE_Local_Sources','JF LIFE Local Sources') } |
   Select-Object -ExpandProperty FullName
 "@
 }
