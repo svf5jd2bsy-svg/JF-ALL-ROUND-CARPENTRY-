@@ -48,6 +48,15 @@ Invoke-WebRequest $u -OutFile $f
 powershell -ExecutionPolicy Bypass -File $f -IncludeLarge
 ```
 
+If your folders are in non-default paths, pass them explicitly:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File $f `
+  -ICloudPath "C:\Users\<you>\OneDrive\iCloud\JF LIFE" `
+  -ExternalDPath "E:\Backups\JF LIFE" `
+  -IncludeLarge
+```
+
 ## Useful options
 
 ```powershell

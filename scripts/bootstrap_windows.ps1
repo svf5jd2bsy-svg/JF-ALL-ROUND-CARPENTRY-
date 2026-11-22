@@ -9,6 +9,98 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-DriveRoots {
+    return @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+        Where-Object { $_.Root -match "^[A-Za-z]:\\$" -and [string]::IsNullOrWhiteSpace($_.DisplayRoot) } |
+        Select-Object -ExpandProperty Root)
+}
+
+function Add-UniquePath([string[]]$Values) {
+    $set = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::OrdinalIgnoreCase)
+    $result = @()
+    foreach ($value in $Values) {
+        if ([string]::IsNullOrWhiteSpace($value)) { continue }
+        if ($set.Add($value)) {
+            $result += $value
+        }
+    }
+    return $result
+}
+
+function Find-NamedDirectories([string]$SearchRoot, [string[]]$Names, [int]$MaxDepth = 4) {
+    $results = @()
+    if (-not (Test-Path -LiteralPath $SearchRoot -PathType Container)) {
+        return $results
+    }
+
+    $queue = New-Object System.Collections.Queue
+    $queue.Enqueue(@($SearchRoot, 0))
+    while ($queue.Count -gt 0) {
+        $item = $queue.Dequeue()
+        $currentRoot = [string]$item[0]
+        $depth = [int]$item[1]
+
+        try {
+            $children = Get-ChildItem -LiteralPath $currentRoot -Directory -ErrorAction Stop
+        } catch {
+            continue
+        }
+
+        foreach ($dir in $children) {
+            if ($Names -contains $dir.Name) {
+                $results += $dir.FullName
+            }
+            if ($depth -lt $MaxDepth) {
+                $queue.Enqueue(@($dir.FullName, $depth + 1))
+            }
+        }
+    }
+    return $results
+}
+
+function Resolve-SourceCandidates([string]$PreferredICloudPath, [string]$PreferredExternalPath) {
+    $names = @("JF LIFE", "JF_LIFE", "JF-LIFE")
+    $candidates = @(
+        @{ Label = "iCloud"; Path = $PreferredICloudPath },
+        @{ Label = "ExternalD"; Path = $PreferredExternalPath },
+        @{ Label = "iCloud"; Path = "$env:USERPROFILE\iCloudDrive\JF LIFE" },
+        @{ Label = "iCloud"; Path = "$env:USERPROFILE\iCloudDrive\JF_LIFE" },
+        @{ Label = "iCloud"; Path = "$env:USERPROFILE\iCloud Drive\JF LIFE" },
+        @{ Label = "Local"; Path = "$env:USERPROFILE\Documents\JF LIFE" },
+        @{ Label = "Local"; Path = "$env:USERPROFILE\Desktop\JF LIFE" },
+        @{ Label = "Local"; Path = "$env:USERPROFILE\Downloads\JF LIFE" }
+    )
+
+    foreach ($root in Get-DriveRoots) {
+        $driveLetter = $root.Substring(0, 1).ToUpperInvariant()
+        foreach ($name in $names) {
+            $candidates += @{ Label = "Drive$driveLetter"; Path = (Join-Path $root $name) }
+            $candidates += @{ Label = "Drive$driveLetter"; Path = (Join-Path $root "iCloudDrive\$name") }
+        }
+    }
+
+    $scanRoots = Add-UniquePath @(
+        $env:USERPROFILE,
+        "$env:USERPROFILE\Documents",
+        "$env:USERPROFILE\Desktop",
+        "$env:USERPROFILE\Downloads",
+        (Get-DriveRoots)
+    )
+
+    $autoFoundPaths = @()
+    foreach ($scanRoot in $scanRoots) {
+        $autoFoundPaths += Find-NamedDirectories -SearchRoot $scanRoot -Names $names -MaxDepth 3
+    }
+    $autoFoundPaths = Add-UniquePath $autoFoundPaths
+
+    foreach ($path in $autoFoundPaths) {
+        $label = if ($path -match "iCloud") { "iCloudAuto" } else { "Auto" }
+        $candidates += @{ Label = $label; Path = $path }
+    }
+
+    return $candidates
+}
+
 function Ensure-Git {
     if (Get-Command git -ErrorAction SilentlyContinue) {
         return
@@ -69,19 +161,32 @@ Set-Location $RepoDir
 $linkArgs = @("scripts/jf_life_link.py")
 
 $sources = @()
-if (Test-Path $ICloudPath) {
-    $sources += @("--source", "iCloud=$ICloudPath")
-} else {
-    Write-Warning "iCloud source not found: $ICloudPath"
-}
-if (Test-Path $ExternalDPath) {
-    $sources += @("--source", "ExternalD=$ExternalDPath")
-} else {
-    Write-Warning "External D source not found: $ExternalDPath"
+$sourcePathSet = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::OrdinalIgnoreCase)
+$candidateSources = Resolve-SourceCandidates -PreferredICloudPath $ICloudPath -PreferredExternalPath $ExternalDPath
+
+foreach ($candidate in $candidateSources) {
+    $candidatePath = [string]$candidate.Path
+    if ([string]::IsNullOrWhiteSpace($candidatePath)) { continue }
+    if (-not (Test-Path -LiteralPath $candidatePath -PathType Container)) { continue }
+    $resolved = (Resolve-Path -LiteralPath $candidatePath).Path
+    if ($sourcePathSet.Add($resolved)) {
+        $sources += @("--source", "$($candidate.Label)=$resolved")
+        Write-Host "Using source [$($candidate.Label)]: $resolved"
+    }
 }
 
 if ($sources.Count -eq 0) {
-    throw "No source folders found. Checked: $ICloudPath and $ExternalDPath"
+    throw @"
+No source folders found.
+Checked defaults:
+- $ICloudPath
+- $ExternalDPath
+
+Find folders quickly, then rerun with explicit paths:
+Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -in @('JF LIFE','JF_LIFE','JF-LIFE') } |
+  Select-Object -ExpandProperty FullName
+"@
 }
 
 $linkArgs += $sources
