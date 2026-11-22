@@ -39,6 +39,15 @@ Or PowerShell helper:
 .\scripts\connect_jf_life.ps1 -Push
 ```
 
+If Git is not installed yet, run this from **any** PowerShell window to auto-install Git (via winget), clone/update the repo, and run the linker:
+
+```powershell
+$u = "https://raw.githubusercontent.com/svf5jd2bsy-svg/JF-ALL-ROUND-CARPENTRY-/main/scripts/bootstrap_windows.ps1"
+$f = Join-Path $env:TEMP "bootstrap_windows.ps1"
+Invoke-WebRequest $u -OutFile $f
+powershell -ExecutionPolicy Bypass -File $f -IncludeLarge
+```
+
 ## Useful options
 
 ```powershell
