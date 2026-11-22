@@ -151,6 +151,15 @@ This is a desktop app window (not a web page) for inventory, Outlook connect,
 approval workflow execution, dashboard generation, and companion API hosting.
 It also includes **Live updates** controls (one run or looped cadence).
 
+For a quick pairing readiness check (API health + LAN + token presence):
+
+```powershell
+.\scripts\RUN-JF-READINESS-CHECK.cmd
+```
+
+If LAN health fails, keep the companion running and allow local private-network
+access on port 8712 (the checker prints the exact firewall command).
+
 For one-command live sync from Windows:
 
 ```powershell
