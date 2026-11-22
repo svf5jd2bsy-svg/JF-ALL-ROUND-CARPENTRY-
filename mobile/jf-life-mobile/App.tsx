@@ -1,5 +1,5 @@
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -57,25 +57,18 @@ export default function App() {
   const [message, setMessage] = useState("Connect to your Windows companion API.");
   const [summary, setSummary] = useState<Summary | null>(null);
 
-  const authHeaders = useMemo(
-    () =>
-      pairingToken.trim()
-        ? { Authorization: `Bearer ${pairingToken.trim()}` }
-        : {},
-    [pairingToken]
-  );
-
   const call = async <T,>(
     path: string,
     init: RequestInit = {}
   ): Promise<T> => {
-    const response = await fetch(`${apiBase}${path}`, {
+    const headers = new Headers(init.headers);
+    headers.set("Content-Type", "application/json");
+    if (pairingToken.trim()) {
+      headers.set("Authorization", `Bearer ${pairingToken.trim()}`);
+    }
+    const response = await fetch(`${apiBase.replace(/\/+$/, "")}${path}`, {
       ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(init.headers || {}),
-        ...authHeaders,
-      },
+      headers,
     });
     const body = await response.json();
     if (!response.ok || body.ok === false) {
@@ -120,14 +113,13 @@ export default function App() {
       refreshSummary().catch(() => undefined);
     }, 20000);
     return () => clearInterval(timer);
-  }, [autoRefresh, pairingToken]);
+  }, [autoRefresh, apiBase, pairingToken]);
 
   const verifyPairing = async () => {
     setLoading(true);
     try {
       await call("/pairing/verify", {
         method: "POST",
-        headers: {},
         body: JSON.stringify({ pairing_token: pairingToken.trim() }),
       });
       setMessage("Pairing token verified.");
