@@ -15,6 +15,33 @@ function Get-DriveRoots {
         Select-Object -ExpandProperty Root)
 }
 
+function Get-DriveInfo {
+    $labelsByRoot = @{}
+    try {
+        $disks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" -ErrorAction Stop
+        foreach ($disk in $disks) {
+            if ([string]::IsNullOrWhiteSpace($disk.DeviceID)) { continue }
+            $root = "$($disk.DeviceID)\"
+            $labelsByRoot[$root] = [string]$disk.VolumeName
+        }
+    } catch {
+        # Label lookup is optional. Continue without labels.
+    }
+
+    $results = @()
+    foreach ($root in Get-DriveRoots) {
+        $label = ""
+        if ($labelsByRoot.ContainsKey($root)) {
+            $label = [string]$labelsByRoot[$root]
+        }
+        $results += [pscustomobject]@{
+            Root  = $root
+            Label = $label
+        }
+    }
+    return $results
+}
+
 function Add-UniquePath([string[]]$Values) {
     $set = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::OrdinalIgnoreCase)
     $result = @()
@@ -60,6 +87,7 @@ function Find-NamedDirectories([string]$SearchRoot, [string[]]$Names, [int]$MaxD
 
 function Resolve-SourceCandidates([string]$PreferredICloudPath, [string]$PreferredExternalPath) {
     $names = @(
+        "JF",
         "JF LIFE",
         "JF_LIFE",
         "JF-LIFE",
@@ -79,11 +107,19 @@ function Resolve-SourceCandidates([string]$PreferredICloudPath, [string]$Preferr
         @{ Label = "Downloads"; Path = "$env:USERPROFILE\Downloads\JF_LIFE_Local_Sources_Windows\JF_LIFE_Local_Sources" }
     )
 
-    foreach ($root in Get-DriveRoots) {
+    foreach ($drive in Get-DriveInfo) {
+        $root = [string]$drive.Root
+        $label = [string]$drive.Label
         $driveLetter = $root.Substring(0, 1).ToUpperInvariant()
         foreach ($name in $names) {
             $candidates += @{ Label = "Drive$driveLetter"; Path = (Join-Path $root $name) }
             $candidates += @{ Label = "Drive$driveLetter"; Path = (Join-Path $root "iCloudDrive\$name") }
+        }
+
+        if ($label -match "(?i)\bjf\b|jf\s*life") {
+            $candidates += @{ Label = "Drive$driveLetter-LabelJF"; Path = $root }
+            $candidates += @{ Label = "Drive$driveLetter-LabelJF"; Path = (Join-Path $root "JF") }
+            $candidates += @{ Label = "Drive$driveLetter-LabelJF"; Path = (Join-Path $root "JF LIFE") }
         }
     }
 
@@ -192,8 +228,11 @@ Checked defaults:
 
 Find folders quickly, then rerun with explicit paths:
 Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -ErrorAction SilentlyContinue |
-  Where-Object { `$_.Name -in @('JF LIFE','JF_LIFE','JF-LIFE','JF_LIFE_Local_Sources','JF LIFE Local Sources') } |
+  Where-Object { `$_.Name -in @('JF','JF LIFE','JF_LIFE','JF-LIFE','JF_LIFE_Local_Sources','JF LIFE Local Sources') } |
   Select-Object -ExpandProperty FullName
+
+If your drive is shown as 'JF (D:)', rerun with:
+powershell -ExecutionPolicy Bypass -File "$PSCommandPath" -ExternalDPath "D:\" -IncludeLarge
 "@
 }
 

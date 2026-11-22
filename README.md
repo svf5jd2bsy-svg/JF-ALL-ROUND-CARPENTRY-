@@ -61,11 +61,17 @@ If bootstrap says no source folders found, run:
 
 ```powershell
 Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -in @('JF LIFE','JF_LIFE','JF-LIFE','JF_LIFE_Local_Sources','JF LIFE Local Sources') } |
+  Where-Object { $_.Name -in @('JF','JF LIFE','JF_LIFE','JF-LIFE','JF_LIFE_Local_Sources','JF LIFE Local Sources') } |
   Select-Object -ExpandProperty FullName
 ```
 
 Then rerun bootstrap with explicit paths from the output.
+
+If your external drive appears as **JF (D:)** and files are at the drive root, run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File $f -ExternalDPath "D:\" -IncludeLarge
+```
 
 ## Useful options
 
