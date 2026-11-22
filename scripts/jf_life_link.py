@@ -183,6 +183,14 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def is_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except Exception:
+        return False
+
+
 def run_git_command(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, text=True, check=True, capture_output=True)
 
@@ -232,8 +240,12 @@ def main() -> int:
     bytes_copied = 0
 
     source_results: list[dict[str, object]] = []
+    stop_processing = False
+    stop_reason = ""
 
     for source in source_specs:
+        if stop_processing:
+            break
         source_root = source.root
         if not source_root.exists() or not source_root.is_dir():
             skipped.append(
@@ -256,10 +268,23 @@ def main() -> int:
         source_seen = 0
         source_files = iter_files(source_root)
         for absolute_file in source_files:
+            if stop_processing:
+                break
             source_seen += 1
             files_seen += 1
             rel_path = absolute_file.relative_to(source_root)
             rel_posix = rel_path.as_posix()
+
+            if is_within(absolute_file, REPO_ROOT):
+                skipped.append(
+                    {
+                        "source_label": source.label,
+                        "source_root": str(source_root),
+                        "relative_path": rel_posix,
+                        "reason": "inside_repo_skipped",
+                    }
+                )
+                continue
 
             if should_exclude(rel_posix, args.exclude):
                 skipped.append(
@@ -325,7 +350,23 @@ def main() -> int:
                 target_abs = output_root_abs / target_rel
                 if not args.dry_run:
                     target_abs.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(absolute_file, target_abs)
+                    try:
+                        shutil.copy2(absolute_file, target_abs)
+                    except OSError as exc:
+                        skipped.append(
+                            {
+                                "source_label": source.label,
+                                "source_root": str(source_root),
+                                "relative_path": rel_posix,
+                                "reason": "copy_failed",
+                                "error": str(exc),
+                                "target_path": target_posix,
+                            }
+                        )
+                        if getattr(exc, "winerror", None) == 112 or getattr(exc, "errno", None) == 28:
+                            stop_processing = True
+                            stop_reason = "disk_full"
+                        continue
                 hash_to_target[digest] = target_posix
                 files_copied += 1
                 bytes_copied += stat.st_size
@@ -346,11 +387,14 @@ def main() -> int:
                 }
             )
 
+        source_status = "processed"
+        if stop_processing and stop_reason == "disk_full":
+            source_status = "aborted_disk_full"
         source_results.append(
             {
                 "label": source.label,
                 "root": str(source_root),
-                "status": "processed",
+                "status": source_status,
                 "files_seen": source_seen,
             }
         )
@@ -367,6 +411,7 @@ def main() -> int:
             "files_deduplicated": files_deduped,
             "files_skipped": len(skipped),
             "bytes_linked": bytes_copied,
+            "aborted_reason": stop_reason or None,
         },
         "sources": source_results,
         "files": file_records,
@@ -384,6 +429,11 @@ def main() -> int:
         output_file.write("\n")
 
     print(json.dumps(manifest_data["summary"], indent=2))
+    if stop_reason == "disk_full":
+        print(
+            "Stopped early: destination disk ran out of space. "
+            "Free space or run from a larger drive, then rerun."
+        )
     print(f"Manifest written to {manifest_rel.as_posix()}")
 
     if args.git_commit or args.git_push:

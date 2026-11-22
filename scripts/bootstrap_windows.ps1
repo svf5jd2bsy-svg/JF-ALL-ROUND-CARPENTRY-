@@ -42,6 +42,37 @@ function Get-DriveInfo {
     return $results
 }
 
+function Resolve-RepoDir([string]$CurrentRepoDir, [string]$ExternalPath, [bool]$RepoDirExplicitlySet) {
+    if ($RepoDirExplicitlySet) {
+        return $CurrentRepoDir
+    }
+
+    $externalRoot = ""
+    try {
+        if (Test-Path -LiteralPath $ExternalPath -PathType Container) {
+            $resolved = (Resolve-Path -LiteralPath $ExternalPath).Path
+            $externalRoot = [System.IO.Path]::GetPathRoot($resolved)
+        } elseif ($ExternalPath -match "^[A-Za-z]:\\") {
+            $externalRoot = "$($ExternalPath.Substring(0,1).ToUpperInvariant()):\"
+        }
+    } catch {
+        $externalRoot = ""
+    }
+
+    if ([string]::IsNullOrWhiteSpace($externalRoot)) {
+        return $CurrentRepoDir
+    }
+
+    $currentRoot = [System.IO.Path]::GetPathRoot($CurrentRepoDir)
+    if ($externalRoot -and ($externalRoot -ne $currentRoot)) {
+        $suggested = Join-Path $externalRoot "JF-ALL-ROUND-CARPENTRY-"
+        Write-Host "Using repository folder on external drive: $suggested"
+        return $suggested
+    }
+
+    return $CurrentRepoDir
+}
+
 function Add-UniquePath([string[]]$Values) {
     $set = New-Object "System.Collections.Generic.HashSet[string]" ([System.StringComparer]::OrdinalIgnoreCase)
     $result = @()
@@ -83,6 +114,32 @@ function Find-NamedDirectories([string]$SearchRoot, [string[]]$Names, [int]$MaxD
         }
     }
     return $results
+}
+
+function Get-JFChildFolders([string]$RootPath) {
+    $names = @(
+        "JF",
+        "JF LIFE",
+        "JF_LIFE",
+        "JF-LIFE",
+        "JF_LIFE_Local_Sources",
+        "JF LIFE Local Sources"
+    )
+    $results = @()
+    if (-not ($RootPath -match "^[A-Za-z]:\\$")) {
+        return $results
+    }
+    try {
+        $children = Get-ChildItem -LiteralPath $RootPath -Directory -ErrorAction Stop
+    } catch {
+        return $results
+    }
+    foreach ($child in $children) {
+        if ($names -contains $child.Name -or $child.Name -match "(?i)^jf([ _-]|$)") {
+            $results += $child.FullName
+        }
+    }
+    return Add-UniquePath $results
 }
 
 function Resolve-SourceCandidates([string]$PreferredICloudPath, [string]$PreferredExternalPath) {
@@ -197,10 +254,24 @@ function Get-PythonRunner {
     throw "Python not found. Install Python, then rerun."
 }
 
+function Test-IsInsidePath([string]$Path, [string]$Root) {
+    if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Root)) {
+        return $false
+    }
+    $pathNorm = $Path.TrimEnd("\")
+    $rootNorm = $Root.TrimEnd("\")
+    return $pathNorm.Equals($rootNorm, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $pathNorm.StartsWith("$rootNorm\", [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+$repoDirExplicitlySet = $PSBoundParameters.ContainsKey("RepoDir")
+$RepoDir = Resolve-RepoDir -CurrentRepoDir $RepoDir -ExternalPath $ExternalDPath -RepoDirExplicitlySet $repoDirExplicitlySet
+
 Ensure-Git
 Ensure-Repo -RepoUrlValue $RepoUrl -RepoDirValue $RepoDir
 
 Set-Location $RepoDir
+$repoRootResolved = (Resolve-Path -LiteralPath $RepoDir).Path
 
 $linkArgs = @("scripts/jf_life_link.py")
 
@@ -213,6 +284,27 @@ foreach ($candidate in $candidateSources) {
     if ([string]::IsNullOrWhiteSpace($candidatePath)) { continue }
     if (-not (Test-Path -LiteralPath $candidatePath -PathType Container)) { continue }
     $resolved = (Resolve-Path -LiteralPath $candidatePath).Path
+
+    if ($resolved -match "^[A-Za-z]:\\$") {
+        $jfChildren = Get-JFChildFolders -RootPath $resolved
+        if ($jfChildren.Count -gt 0) {
+            foreach ($childPath in $jfChildren) {
+                if (Test-IsInsidePath -Path $childPath -Root $repoRootResolved) {
+                    continue
+                }
+                if ($sourcePathSet.Add($childPath)) {
+                    $sources += @("--source", "$($candidate.Label)=$childPath")
+                    Write-Host "Using source [$($candidate.Label)]: $childPath"
+                }
+            }
+            continue
+        }
+    }
+
+    if (Test-IsInsidePath -Path $resolved -Root $repoRootResolved) {
+        continue
+    }
+
     if ($sourcePathSet.Add($resolved)) {
         $sources += @("--source", "$($candidate.Label)=$resolved")
         Write-Host "Using source [$($candidate.Label)]: $resolved"
@@ -232,7 +324,7 @@ Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -Er
   Select-Object -ExpandProperty FullName
 
 If your drive is shown as 'JF (D:)', rerun with:
-powershell -ExecutionPolicy Bypass -File "$PSCommandPath" -ExternalDPath "D:\" -IncludeLarge
+powershell -ExecutionPolicy Bypass -File "$PSCommandPath" -ExternalDPath "D:\JF" -RepoDir "D:\JF-ALL-ROUND-CARPENTRY-" -IncludeLarge
 "@
 }
 

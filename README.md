@@ -48,6 +48,8 @@ Invoke-WebRequest $u -OutFile $f
 powershell -ExecutionPolicy Bypass -File $f -IncludeLarge
 ```
 
+When `-ExternalDPath` points to another drive, bootstrap now places/clones the repo on that drive automatically to avoid filling `C:`.
+
 If your folders are in non-default paths, pass them explicitly:
 
 ```powershell
@@ -70,8 +72,10 @@ Then rerun bootstrap with explicit paths from the output.
 If your external drive appears as **JF (D:)** and files are at the drive root, run:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File $f -ExternalDPath "D:\" -IncludeLarge
+powershell -ExecutionPolicy Bypass -File $f -ExternalDPath "D:\JF" -RepoDir "D:\JF-ALL-ROUND-CARPENTRY-" -IncludeLarge
 ```
+
+If you see `Stopped early: destination disk ran out of space`, keep the repo on a larger drive (for example `D:`) and rerun.
 
 ## Useful options
 
