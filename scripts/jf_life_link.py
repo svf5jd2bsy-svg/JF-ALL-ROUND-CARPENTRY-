@@ -170,14 +170,16 @@ def validate_source_labels(sources: list[SourceSpec]) -> None:
 def validate_source_destinations(sources: list[SourceSpec], destinations: list[Path]) -> None:
     for source in sources:
         source_path = source.root.resolve()
+        if is_within(source_path, REPO_ROOT):
+            raise ValueError(
+                f"Source '{source.label}' is inside the repository. "
+                "Choose a local source folder outside the generated destination."
+            )
         for destination in destinations:
             try:
-                destination.relative_to(source_path)
+                source_path.relative_to(destination)
             except ValueError:
-                try:
-                    source_path.relative_to(destination)
-                except ValueError:
-                    continue
+                continue
             raise ValueError(
                 f"Source '{source.label}' overlaps a generated destination. "
                 "Choose separate source and output locations."
@@ -215,12 +217,14 @@ def classify_area(source_label: str, rel_path: Path) -> str:
 def iter_files(root: Path) -> list[Path]:
     output: list[Path] = []
     for current_root, dir_names, file_names in os.walk(root):
+        current_path = Path(current_root)
         dir_names[:] = [
             name
             for name in dir_names
-            if name not in SKIP_DIR_NAMES and not name.startswith("$RECYCLE.BIN")
+            if name not in SKIP_DIR_NAMES
+            and not name.startswith("$RECYCLE.BIN")
+            and not is_within(current_path / name, REPO_ROOT)
         ]
-        current_path = Path(current_root)
         for name in file_names:
             output.append(current_path / name)
     output.sort()

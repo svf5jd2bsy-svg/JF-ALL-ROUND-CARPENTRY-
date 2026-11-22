@@ -100,10 +100,16 @@ Get-ChildItem -Path "$env:USERPROFILE","D:\","E:\","F:\" -Directory -Recurse -Er
 
 Then rerun bootstrap with explicit paths from the output.
 
-If your external drive appears as **JF (D:)** and files are at the drive root, run:
+If your external drive appears as **JF (D:)** and files are at the drive root,
+preview it safely. The linker prunes the generated repository folder from the
+source walk:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File $f -ExternalDPath "D:\JF" -RepoDir "D:\JF-ALL-ROUND-CARPENTRY-" -IncludeLarge
+powershell -ExecutionPolicy Bypass -File $f `
+  -ExternalDPath "D:\" `
+  -IncludePattern "*JF LIFE*","*.pdf","*.docx" `
+  -DryRun `
+  -NoPush
 ```
 
 If you see `Stopped early: destination disk ran out of space`, keep the repo on a larger drive (for example `D:`) and rerun.

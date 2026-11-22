@@ -1,6 +1,8 @@
+import importlib.util
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,6 +10,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "jf_life_link.py"
+SPEC = importlib.util.spec_from_file_location("jf_life_link", SCRIPT)
+assert SPEC and SPEC.loader
+JF_LIFE_LINK = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = JF_LIFE_LINK
+SPEC.loader.exec_module(JF_LIFE_LINK)
 
 
 class JfLifeLinkIntegrationTests(unittest.TestCase):
@@ -116,7 +123,7 @@ class JfLifeLinkIntegrationTests(unittest.TestCase):
                 ["Business/notes.txt"],
             )
 
-    def test_rejects_generated_output_inside_source(self) -> None:
+    def test_rejects_source_inside_repository(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT) as temp:
             source = Path(temp)
             output_rel = source.relative_to(REPO_ROOT) / "Library"
@@ -130,7 +137,28 @@ class JfLifeLinkIntegrationTests(unittest.TestCase):
             )
 
         self.assertEqual(result.returncode, 2)
-        self.assertIn("overlaps a generated destination", result.stderr)
+        self.assertIn("is inside the repository", result.stderr)
+
+    def test_drive_root_source_prunes_nested_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            drive_root = Path(temp)
+            virtual_repo = drive_root / "JF-ALL-ROUND-CARPENTRY-"
+            source_file = drive_root / "JF quote.pdf"
+            repo_file = virtual_repo / "Library" / "generated.pdf"
+            repo_file.parent.mkdir(parents=True)
+            source_file.write_text("source", encoding="utf-8")
+            repo_file.write_text("generated", encoding="utf-8")
+
+            previous_repo_root = JF_LIFE_LINK.REPO_ROOT
+            JF_LIFE_LINK.REPO_ROOT = virtual_repo
+            try:
+                JF_LIFE_LINK.validate_source_destinations(
+                    [JF_LIFE_LINK.SourceSpec("DriveD", drive_root)],
+                    [virtual_repo / "Library"],
+                )
+                self.assertEqual(JF_LIFE_LINK.iter_files(drive_root), [source_file])
+            finally:
+                JF_LIFE_LINK.REPO_ROOT = previous_repo_root
 
     def test_repository_plugin_and_agent_links_are_valid(self) -> None:
         settings = json.loads((REPO_ROOT / ".github/copilot/settings.json").read_text())
