@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JF LIFE Library Index</title>
+  <style>
+    body { margin: 0; background: #151a22; color: #f6f7fb; font: 16px/1.45 system-ui, sans-serif; }
+    main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; }
+    p { margin: 0 0 14px; color: #c9d3e4; }
+    .pills { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .pill { border: 1px solid #59667c; border-radius: 999px; padding: 6px 12px; color: #f0cc73; }
+    .controls { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 14px; }
+    input, select {
+      width: 100%; box-sizing: border-box; border: 1px solid #5d6b80; border-radius: 8px;
+      padding: 10px; background: #202733; color: #f6f7fb;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; border-bottom: 1px solid #3f495a; padding: 10px; vertical-align: top; }
+    th { color: #f0cc73; }
+    a { color: #f0cc73; }
+    .muted { color: #aebad0; }
+    .error { color: #ff8b8b; }
+    .scroll { overflow: auto; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>JF LIFE Library Index</h1>
+  <p>Generated from <code>Organisation/latest/File-Library-Manifest.json</code>.</p>
+  <div class="pills">
+    <span id="totalFiles" class="pill">0 files</span>
+    <span id="totalSize" class="pill">0 B</span>
+    <span id="visibleCount" class="pill">0 visible</span>
+  </div>
+
+  <div class="controls">
+    <label>Find file or path
+      <input id="search" type="search" placeholder="Name, folder, source, hash">
+    </label>
+    <label>Area
+      <select id="areaFilter">
+        <option value="all">All</option>
+        <option value="Business">Business</option>
+        <option value="Personal">Personal</option>
+        <option value="Course">Course</option>
+        <option value="Needs-review">Needs-review</option>
+      </select>
+    </label>
+    <label>Source label
+      <select id="sourceFilter">
+        <option value="all">All</option>
+      </select>
+    </label>
+  </div>
+
+  <p id="status" class="muted">Loading manifest...</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+      <tr>
+        <th>File</th>
+        <th>Area</th>
+        <th>Source</th>
+        <th>Size</th>
+        <th>Status</th>
+      </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  const manifestCandidates = [
+    "../Organisation/latest/File-Library-Manifest.json",
+    "Organisation/latest/File-Library-Manifest.json"
+  ];
+  const rowsElement = document.getElementById("rows");
+  const searchInput = document.getElementById("search");
+  const areaFilter = document.getElementById("areaFilter");
+  const sourceFilter = document.getElementById("sourceFilter");
+  const statusEl = document.getElementById("status");
+
+  let records = [];
+
+  function formatBytes(value) {
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let size = value;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${size.toFixed(size < 10 && unit > 0 ? 2 : 1)} ${units[unit]}`;
+  }
+
+  function buildSourceFilter(items) {
+    const labels = Array.from(new Set(items.map((item) => item.source_label))).sort((a, b) => a.localeCompare(b));
+    sourceFilter.innerHTML = '<option value="all">All</option>';
+    labels.forEach((label) => {
+      const opt = document.createElement("option");
+      opt.value = label;
+      opt.textContent = label;
+      sourceFilter.appendChild(opt);
+    });
+  }
+
+  function render() {
+    const q = searchInput.value.trim().toLowerCase();
+    const area = areaFilter.value;
+    const source = sourceFilter.value;
+    let visible = 0;
+
+    rowsElement.innerHTML = "";
+    records.forEach((item) => {
+      const textBlob = `${item.relative_path} ${item.target_path} ${item.source_label} ${item.sha256}`.toLowerCase();
+      const matchesSearch = !q || textBlob.includes(q);
+      const matchesArea = area === "all" || item.area === area;
+      const matchesSource = source === "all" || item.source_label === source;
+      if (!matchesSearch || !matchesArea || !matchesSource) return;
+
+      visible += 1;
+      const row = document.createElement("tr");
+      const status = item.deduplicated_to ? `Deduplicated to ${item.deduplicated_to}` : "Linked";
+      const href = `../${item.target_path}`;
+      row.innerHTML = `
+        <td><a href="${href}">${item.relative_path.split("/").pop()}</a><div class="muted">${item.relative_path}</div></td>
+        <td>${item.area}</td>
+        <td>${item.source_label}</td>
+        <td>${formatBytes(item.size_bytes)}</td>
+        <td>${status}</td>
+      `;
+      rowsElement.appendChild(row);
+    });
+
+    document.getElementById("visibleCount").textContent = `${visible} visible`;
+    statusEl.textContent = `${visible} of ${records.length} files shown`;
+    statusEl.className = "muted";
+  }
+
+  async function loadManifest() {
+    for (const candidate of manifestCandidates) {
+      try {
+        const res = await fetch(candidate, { cache: "no-store" });
+        if (!res.ok) continue;
+        const manifest = await res.json();
+        records = Array.isArray(manifest.files) ? manifest.files : [];
+        const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+        document.getElementById("totalFiles").textContent = `${records.length} files`;
+        document.getElementById("totalSize").textContent = formatBytes(totalBytes);
+        buildSourceFilter(records);
+        render();
+        return;
+      } catch (error) {
+        // Try next candidate path.
+      }
+    }
+    statusEl.textContent = "Manifest not found. Run scripts/jf_life_link.py first.";
+    statusEl.className = "error";
+  }
+
+  searchInput.addEventListener("input", render);
+  areaFilter.addEventListener("change", render);
+  sourceFilter.addEventListener("change", render);
+  loadManifest();
+</script>
+</body>
+</html>
