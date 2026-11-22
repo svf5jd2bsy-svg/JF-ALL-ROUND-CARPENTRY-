@@ -38,6 +38,8 @@ class CompanionApp(tk.Tk):
         self.token_value = tk.StringVar(value="")
         self.api_host = tk.StringVar(value="0.0.0.0")
         self.api_port = tk.StringVar(value="8712")
+        self.live_interval_seconds = tk.StringVar(value="300")
+        self.live_cycles = tk.StringVar(value="0")
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -90,6 +92,23 @@ class CompanionApp(tk.Tk):
         )
         ttk.Button(api_frame, text="Start API server", command=self.start_api_server).grid(
             row=0, column=6, padx=8
+        )
+
+        live_frame = ttk.LabelFrame(main, text="Live updates", padding=8)
+        live_frame.pack(fill="x", pady=6)
+        ttk.Label(live_frame, text="Interval (sec)").grid(row=0, column=0, sticky="w")
+        ttk.Entry(live_frame, textvariable=self.live_interval_seconds, width=10).grid(
+            row=0, column=1, sticky="w", padx=6
+        )
+        ttk.Label(live_frame, text="Cycles (0 = forever)").grid(row=0, column=2, sticky="w")
+        ttk.Entry(live_frame, textvariable=self.live_cycles, width=10).grid(
+            row=0, column=3, sticky="w", padx=6
+        )
+        ttk.Button(live_frame, text="Live sync (run once)", command=self.run_live_once).grid(
+            row=0, column=4, padx=8
+        )
+        ttk.Button(live_frame, text="Start live sync loop", command=self.start_live_loop).grid(
+            row=0, column=5, padx=8
         )
 
         self.output = tk.Text(main, height=25, wrap="word")
@@ -223,6 +242,29 @@ class CompanionApp(tk.Tk):
         if token:
             args += ["--pairing-token", token]
         self.run_task("companion-api", args)
+
+    def _live_sync_args(self, cycles: str) -> list[str]:
+        args = [
+            str(REPO_ROOT / "scripts/jf_life_live_sync.py"),
+            "--state-dir",
+            self.state_dir.get().strip(),
+            "--interval-seconds",
+            self.live_interval_seconds.get().strip() or "300",
+            "--cycles",
+            cycles,
+        ]
+        args += self.base_sources()
+        client_id = self.outlook_client_id.get().strip()
+        if client_id:
+            args += ["--outlook-client-id", client_id]
+        return args
+
+    def run_live_once(self) -> None:
+        self.run_task("live-sync", self._live_sync_args("1"))
+
+    def start_live_loop(self) -> None:
+        cycles = self.live_cycles.get().strip() or "0"
+        self.run_task("live-sync-loop", self._live_sync_args(cycles))
 
 
 def main() -> int:

@@ -1,11 +1,12 @@
 import { StatusBar } from "expo-status-bar";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Button,
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -52,6 +53,7 @@ export default function App() {
   const [apiBase, setApiBase] = useState("http://192.168.0.100:8712");
   const [pairingToken, setPairingToken] = useState("");
   const [loading, setLoading] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const [message, setMessage] = useState("Connect to your Windows companion API.");
   const [summary, setSummary] = useState<Summary | null>(null);
 
@@ -112,6 +114,14 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (!autoRefresh || !pairingToken.trim()) return;
+    const timer = setInterval(() => {
+      refreshSummary().catch(() => undefined);
+    }, 20000);
+    return () => clearInterval(timer);
+  }, [autoRefresh, pairingToken]);
+
   const verifyPairing = async () => {
     setLoading(true);
     try {
@@ -157,6 +167,10 @@ export default function App() {
         <View style={styles.row}>
           <Button title="Verify Pairing" onPress={verifyPairing} />
           <Button title="Refresh" onPress={refreshSummary} />
+        </View>
+        <View style={styles.row}>
+          <Text style={styles.item}>Live updates every 20s</Text>
+          <Switch value={autoRefresh} onValueChange={setAutoRefresh} />
         </View>
         <Text style={styles.message}>{message}</Text>
         {loading ? <ActivityIndicator color="#f0cc73" /> : null}

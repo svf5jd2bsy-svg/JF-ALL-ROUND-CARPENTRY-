@@ -149,6 +149,19 @@ Use the Windows companion app shell:
 
 This is a desktop app window (not a web page) for inventory, Outlook connect,
 approval workflow execution, dashboard generation, and companion API hosting.
+It also includes **Live updates** controls (one run or looped cadence).
+
+For one-command live sync from Windows:
+
+```powershell
+.\scripts\RUN-JF-LIVE-SYNC.cmd `
+  -ExternalDPath "D:\" `
+  -ICloudPath "$env:USERPROFILE\iCloudDrive\JF LIFE" `
+  -IntervalSeconds 300 `
+  -Cycles 0
+```
+
+This writes per-cycle status to `%LOCALAPPDATA%\JF LIFE\live-sync-status.json`.
 
 Run the review-first local control centre from a Windows PC connected to the
 external drive and signed into iCloud:
@@ -207,6 +220,24 @@ Windows companion API over your local network.
    ```
 3. Open on iPhone via Expo, enter companion host + pairing token, then run
    inventory/recovery/outlook actions from the app.
+   The app also supports auto-refresh every 20 seconds after pairing.
+
+## Stripe and Xero connector checks
+
+You can verify live connectivity to Stripe/Xero from local scripts:
+
+```powershell
+python .\scripts\jf_life_integrations.py `
+  --stripe-api-key "<STRIPE_API_KEY>" `
+  --xero-access-token "<XERO_ACCESS_TOKEN>" `
+  --xero-tenant-id "<XERO_TENANT_ID>" `
+  --json
+```
+
+For continuous checks, pass these values to `RUN-JF-LIVE-SYNC.cmd`; each cycle
+records the connector status in `live-sync-status.json`.
+
+> Keep API tokens local (Windows environment variables or secret manager). Do not commit them.
 
 ## Copilot agents and plugin
 

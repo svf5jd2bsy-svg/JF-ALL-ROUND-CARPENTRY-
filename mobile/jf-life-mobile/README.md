@@ -20,6 +20,10 @@ This is the iPhone-first app shell that connects to the Windows companion API.
    ```
 2. Copy the pairing token shown in the Windows companion.
 3. Enter companion host + token in the app, then tap **Verify Pairing**.
+4. Keep **Live updates every 20s** enabled for continuous summary refresh.
 
 The app can trigger inventory, recovery-plan, Outlook inventory/plan/apply, and
 dashboard generation through the companion API.
+
+Alarms, Home Screen widgets, and iOS Messages still require on-device iPhone
+configuration; they are not remotely controlled from this app shell.
