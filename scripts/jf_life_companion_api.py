@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import hashlib
 import json
 import secrets
 import subprocess
@@ -12,9 +15,9 @@ from typing import Any, Callable
 from urllib.parse import urlparse
 
 try:
-    from jf_life_local import fail, read_json, resolve_state_dir
+    from jf_life_local import atomic_write_json, fail, read_json, resolve_state_dir
 except ModuleNotFoundError:  # pragma: no cover - package-style import fallback
-    from scripts.jf_life_local import fail, read_json, resolve_state_dir
+    from scripts.jf_life_local import atomic_write_json, fail, read_json, resolve_state_dir
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -153,6 +156,7 @@ def create_handler(state_dir: Path, token: str) -> type[BaseHTTPRequestHandler]:
                 "/run/outlook-apply": lambda body: run_outlook_apply(state_dir, body),
                 "/run/dashboard": lambda body: run_dashboard(state_dir, body),
                 "/run/library-publish": lambda body: run_library_publish(state_dir, body),
+                "/run/upload": lambda body: run_upload(state_dir, body),
             }
             runner = handlers.get(parsed.path)
             if runner is None:
@@ -216,6 +220,67 @@ def run_library_publish(state_dir: Path, body: dict[str, Any]) -> tuple[int, str
         return 2, "", "At least one source is required."
     args += ["--git-commit", "--git-push"]
     return run_python("scripts/jf_life_link.py", *args)
+
+
+def classify_phone_upload(name: str, relative_path: str) -> str:
+    text = f"{name} {relative_path}".lower()
+    if any(hint in text for hint in ("business", "company", "invoice", "quote", "gst", "abn", "job", "work", "payroll")):
+        return "Business"
+    if any(hint in text for hint in ("course", "training", "tafe", "assessment", "certificate", "apprentice", "evr")):
+        return "Course"
+    if any(hint in text for hint in ("personal", "family", "medical", "tax", "private", "photo", "contact", "message")):
+        return "Personal"
+    return "Needs-review"
+
+
+def run_upload(state_dir: Path, body: dict[str, Any]) -> tuple[int, str, str]:
+    name = str(body.get("name") or "").strip()
+    relative_path = str(body.get("relative_path") or name).strip()
+    encoded = str(body.get("base64") or "")
+    if not name or not encoded:
+        return 2, "", "Upload name and base64 content are required."
+
+    safe_name = Path(name).name
+    if not safe_name or safe_name in {".", ".."}:
+        return 2, "", "Upload filename is invalid."
+    try:
+        content = base64.b64decode(encoded, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        return 2, "", f"Invalid base64 upload: {exc}"
+    if len(content) > 95 * 1024 * 1024:
+        return 2, "", "Upload is larger than 95 MB."
+
+    area = classify_phone_upload(safe_name, relative_path)
+    digest = hashlib.sha256(content).hexdigest()
+    upload_dir = state_dir / "phone-uploads" / area
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    destination = upload_dir / safe_name
+    if destination.exists():
+        stem = destination.stem
+        suffix = destination.suffix
+        destination = upload_dir / f"{stem}-{digest[:12]}{suffix}"
+    destination.write_bytes(content)
+
+    manifest_path = state_dir / "phone-uploads-manifest.json"
+    existing: list[dict[str, Any]] = []
+    if manifest_path.exists():
+        try:
+            existing = read_json(manifest_path).get("uploads", [])
+        except (OSError, json.JSONDecodeError):
+            existing = []
+    record = {
+        "name": safe_name,
+        "relative_path": relative_path,
+        "area": area,
+        "size_bytes": len(content),
+        "sha256": digest,
+        "mime_type": str(body.get("mime_type") or "application/octet-stream"),
+        "private_path": str(destination),
+    }
+    if not any(item.get("sha256") == digest for item in existing):
+        existing.append(record)
+    atomic_write_json(manifest_path, {"uploads": existing})
+    return 0, f"Uploaded {safe_name} to private JF LIFE state ({area}).", ""
 
 
 def run_recovery_plan(state_dir: Path, _body: dict[str, Any]) -> tuple[int, str, str]:

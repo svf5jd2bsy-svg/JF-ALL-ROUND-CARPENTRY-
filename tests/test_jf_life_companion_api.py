@@ -1,4 +1,5 @@
 import json
+import base64
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,7 @@ if str(SCRIPTS) not in sys.path:
 from jf_life_companion_api import (  # noqa: E402
     ensure_pairing_token,
     run_library_publish,
+    run_upload,
     source_arguments,
     state_summary,
 )
@@ -56,6 +58,26 @@ class CompanionApiTests(unittest.TestCase):
             self.assertEqual(code, 2)
             self.assertEqual(stdout, "")
             self.assertIn("Explicit publish confirmation", stderr)
+
+    def test_phone_upload_stays_in_private_state_and_is_hashed(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            payload = b"JF LIFE phone test"
+            code, stdout, stderr = run_upload(
+                Path(temp),
+                {
+                    "name": "invoice-test.txt",
+                    "relative_path": "invoice-test.txt",
+                    "mime_type": "text/plain",
+                    "base64": base64.b64encode(payload).decode("ascii"),
+                },
+            )
+            self.assertEqual(code, 0)
+            self.assertIn("private JF LIFE state", stdout)
+            self.assertEqual(stderr, "")
+            manifest = json.loads(
+                (Path(temp) / "phone-uploads-manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["uploads"][0]["area"], "Business")
 
     def test_state_summary_reads_private_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

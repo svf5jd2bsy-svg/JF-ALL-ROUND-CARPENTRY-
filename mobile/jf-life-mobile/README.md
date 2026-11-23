@@ -32,5 +32,23 @@ running Inventory. The app includes a **Publish library** action; it uses
 explicit confirmation and requires the Windows companion to have repository
 push access. Keep the repository private before publishing personal files.
 
+Use **Upload iPhone/iCloud files** to choose files or iCloud documents from the
+phone. The companion stores uploads only in the private Windows JF LIFE state
+directory, where they can be reviewed before publishing.
+
+## Build the real native app
+
+From the Windows PC:
+
+```bat
+cd mobile\jf-life-mobile
+RUN-MOBILE-BUILD.cmd android
+RUN-MOBILE-BUILD.cmd ios
+```
+
+Android builds use an APK preview for direct installation. iOS builds require
+an Expo/EAS account with Apple signing configured. The native app is separate
+from the installable PWA in `App/`.
+
 Alarms, Home Screen widgets, and iOS Messages still require on-device iPhone
 configuration; they are not remotely controlled from this app shell.
