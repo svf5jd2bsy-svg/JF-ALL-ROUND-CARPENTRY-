@@ -3,6 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#151a22">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JF LIFE">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>JF LIFE Library Index</title>
   <style>
     body { margin: 0; background: #151a22; color: #f6f7fb; font: 16px/1.45 system-ui, sans-serif; }
@@ -217,6 +224,9 @@
   areaFilter.addEventListener("change", render);
   sourceFilter.addEventListener("change", render);
   loadManifest();
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
 </script>
 </body>
 </html>
