@@ -1,5 +1,7 @@
 # Outlook to JF LIFE setup
 
+[← Back to main README and repository map](../README.md) · Related: [iPhone and iCloud handoff](IPHONE-JF-LIFE-SETUP.md) · [Mobile app shell](../mobile/jf-life-mobile/README.md)
+
 This connector updates the real Outlook mailbox through Microsoft Graph, but the
 OAuth sign-in and all review files stay on the Windows PC. It does not require a
 client secret and never commits tokens.
