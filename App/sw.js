@@ -1,5 +1,5 @@
 // JF LIFE Library service worker: app shell cached, manifest data network-first.
-const CACHE = "jf-life-v1";
+const CACHE = "jf-life-v2";
 const SHELL = ["./Library-Index.html", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png"];
 

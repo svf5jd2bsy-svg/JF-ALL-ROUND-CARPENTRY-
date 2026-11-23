@@ -76,16 +76,6 @@ if ($sources.Count -eq 0) {
     throw "No JF LIFE, iCloud, D drive, or ChatGPT source was found. Connect the drive and iCloud folder, or pass -AdditionalSource."
 }
 
-if ($PublishLibrary) {
-    if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-        throw "Publishing requires GitHub CLI (gh). Install GitHub CLI and authenticate first."
-    }
-    $repo = gh repo view svf5jd2bsy-svg/JF-ALL-ROUND-CARPENTRY- --json isPrivate --jq ".isPrivate" 2>$null
-    if ($repo -ne "true") {
-        throw "Publishing personal JF LIFE sources is blocked while the GitHub repository is public. Make the repository private in GitHub Settings, then rerun with -PublishLibrary."
-    }
-}
-
 $args = @("-ExternalDPath", $ExternalDPath)
 $args += @("-ICloudPath", $ICloudPath)
 $args += @("-BuildLibrary")

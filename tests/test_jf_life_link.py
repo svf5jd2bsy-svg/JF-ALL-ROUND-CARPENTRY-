@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -159,6 +160,96 @@ class JfLifeLinkIntegrationTests(unittest.TestCase):
                 self.assertEqual(JF_LIFE_LINK.iter_files(drive_root), [source_file])
             finally:
                 JF_LIFE_LINK.REPO_ROOT = previous_repo_root
+
+    def test_checks_the_actual_push_urls_for_private_visibility(self) -> None:
+        push_urls = (
+            "https://github.com/example/first.git\n"
+            "git@github.com:example/second.git\n"
+            "ssh://git@ssh.github.com:443/example/third.git\n"
+        )
+        with (
+            patch.object(
+                JF_LIFE_LINK,
+                "run_git_command",
+                return_value=subprocess.CompletedProcess([], 0, stdout=push_urls),
+            ) as git,
+            patch.object(
+                JF_LIFE_LINK.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0, stdout="private\n"),
+            ) as gh,
+        ):
+            JF_LIFE_LINK.require_private_push_destinations()
+
+        git.assert_called_once_with(["git", "remote", "get-url", "--push", "--all", "origin"])
+        self.assertEqual(
+            [call.args[0] for call in gh.call_args_list],
+            [
+                ["gh", "api", "--hostname", "github.com", f"repos/example/{repo}", "--jq", ".visibility"]
+                for repo in ("first", "second", "third")
+            ],
+        )
+
+    def test_public_destination_blocks_import_before_any_files_are_read(self) -> None:
+        for flag in ("--git-commit", "--git-push"):
+            with (
+                self.subTest(flag=flag),
+                tempfile.TemporaryDirectory() as source,
+                patch.object(sys, "argv", [str(SCRIPT), "--source", f"DriveD={source}", flag]),
+                patch.object(JF_LIFE_LINK.os, "chdir"),
+                patch.object(
+                    JF_LIFE_LINK,
+                    "run_git_command",
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, stdout="https://github.com/example/public.git\n"
+                    ),
+                ),
+                patch.object(
+                    JF_LIFE_LINK.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess([], 0, stdout="public\n"),
+                ),
+                patch.object(JF_LIFE_LINK, "iter_files") as iter_files,
+                patch.object(JF_LIFE_LINK, "stage_commit_push") as stage,
+                patch.object(sys, "stderr") as stderr,
+            ):
+                self.assertEqual(JF_LIFE_LINK.main(), 2)
+                iter_files.assert_not_called()
+                stage.assert_not_called()
+                self.assertIn("private GitHub repository", str(stderr.write.call_args_list))
+
+    def test_unverified_destination_fails_closed(self) -> None:
+        for visibility in ("", "null", "internal"):
+            with (
+                self.subTest(visibility=visibility),
+                patch.object(
+                    JF_LIFE_LINK,
+                    "run_git_command",
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, stdout="https://github.com/example/unknown.git\n"
+                    ),
+                ),
+                patch.object(
+                    JF_LIFE_LINK.subprocess,
+                    "run",
+                    return_value=subprocess.CompletedProcess([], 0, stdout=visibility),
+                ),
+            ):
+                with self.assertRaisesRegex(ValueError, "private GitHub repository"):
+                    JF_LIFE_LINK.require_private_push_destinations()
+
+    def test_dry_run_skips_private_destination_check(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as source,
+            patch.object(
+                sys, "argv", [str(SCRIPT), "--source", f"DriveD={source}", "--dry-run", "--git-push"]
+            ),
+            patch.object(JF_LIFE_LINK.os, "chdir"),
+            patch.object(JF_LIFE_LINK, "require_private_push_destinations") as require_private,
+            patch.object(sys, "stdout"),
+        ):
+            self.assertEqual(JF_LIFE_LINK.main(), 0)
+        require_private.assert_not_called()
 
     def test_repository_plugin_and_agent_links_are_valid(self) -> None:
         settings = json.loads((REPO_ROOT / ".github/copilot/settings.json").read_text())
