@@ -2,6 +2,57 @@
 
 This repository now includes a local sync tool to link files from your computer (for example iCloud + `D:` external drive), sort them into library areas, generate a manifest, and push to GitHub.
 
+## Repository map (everything linked)
+
+**Start here**
+
+- [README (this file)](README.md) — full JF LIFE guide
+- [Repository entry page](index.html) — redirects to the library index
+- [Library web app](App/Library-Index.html) — searchable file library (GitHub Pages ready)
+
+**Setup guides (Tools/)**
+
+- [iPhone and iCloud handoff](Tools/IPHONE-JF-LIFE-SETUP.md)
+- [Outlook to JF LIFE setup](Tools/OUTLOOK-JF-LIFE-SETUP.md)
+- [Local dashboard template](Tools/Local-Dashboard.template.html)
+- [Local helper notes](Tools/JF_LIFE_OMG_Start_Local_Helper_2.txt)
+
+**iPhone app shell**
+
+- [JF LIFE mobile app](mobile/jf-life-mobile/README.md) — Expo app shell
+- [App source](mobile/jf-life-mobile/App.tsx) · [App config](mobile/jf-life-mobile/app.json) · [Package manifest](mobile/jf-life-mobile/package.json)
+
+**Scripts (scripts/)**
+
+- Linking: [jf_life_link.py](scripts/jf_life_link.py) · [connect_jf_life.ps1](scripts/connect_jf_life.ps1) · [RUN-JF-LINK.cmd](scripts/RUN-JF-LINK.cmd)
+- Bootstrap: [bootstrap_windows.ps1](scripts/bootstrap_windows.ps1)
+- Local control centre: [jf_life_local.py](scripts/jf_life_local.py) · [RUN-JF-LIFE-LOCAL.ps1](scripts/RUN-JF-LIFE-LOCAL.ps1) · [RUN-JF-LIFE-LOCAL.cmd](scripts/RUN-JF-LIFE-LOCAL.cmd)
+- Live sync: [jf_life_live_sync.py](scripts/jf_life_live_sync.py) · [RUN-JF-LIVE-SYNC.ps1](scripts/RUN-JF-LIVE-SYNC.ps1) · [RUN-JF-LIVE-SYNC.cmd](scripts/RUN-JF-LIVE-SYNC.cmd)
+- Windows companion: [jf_life_windows_companion.py](scripts/jf_life_windows_companion.py) · [RUN-JF-WINDOWS-COMPANION.ps1](scripts/RUN-JF-WINDOWS-COMPANION.ps1) · [RUN-JF-WINDOWS-COMPANION.cmd](scripts/RUN-JF-WINDOWS-COMPANION.cmd)
+- Companion API (mobile pairing): [jf_life_companion_api.py](scripts/jf_life_companion_api.py)
+- Readiness check: [jf_life_readiness.py](scripts/jf_life_readiness.py) · [RUN-JF-READINESS-CHECK.ps1](scripts/RUN-JF-READINESS-CHECK.ps1) · [RUN-JF-READINESS-CHECK.cmd](scripts/RUN-JF-READINESS-CHECK.cmd)
+- Outlook connector: [jf_life_outlook.py](scripts/jf_life_outlook.py)
+- Dashboard: [jf_life_dashboard.py](scripts/jf_life_dashboard.py)
+- Inventory: [jf_life_inventory.py](scripts/jf_life_inventory.py)
+- Recovery copies: [jf_life_recovery.py](scripts/jf_life_recovery.py)
+- Stripe/Xero integrations: [jf_life_integrations.py](scripts/jf_life_integrations.py)
+
+**Tests (tests/)**
+
+- [Linking](tests/test_jf_life_link.py) · [Local](tests/test_jf_life_local.py) · [Companion API](tests/test_jf_life_companion_api.py) · [Integrations](tests/test_jf_life_integrations.py) · [Readiness](tests/test_jf_life_readiness.py)
+
+**Copilot and AI assistant integration**
+
+- [Repository instructions for Copilot](.github/copilot-instructions.md)
+- [Copilot settings (marketplace + plugin)](.github/copilot/settings.json)
+- [Agent plugin marketplace](.github/plugin/marketplace.json)
+- Agents: [JF Life Maintainer](.github/agents/jf-life-maintainer.agent.md) · [JF Life Reviewer](.github/agents/jf-life-reviewer.agent.md)
+- Plugin: [jf-life-maintenance](plugins/jf-life-maintenance/plugin.json) · [maintenance agent](plugins/jf-life-maintenance/com.github.copilot/agents/jf-life-maintenance.agent.md) · [jf-life-sync skill](plugins/jf-life-maintenance/skills/jf-life-sync/SKILL.md)
+- Cloud setup workflow: [copilot-setup-steps.yml](.github/workflows/copilot-setup-steps.yml)
+
+> ChatGPT / other assistants: start at this map, then read
+> [copilot-instructions.md](.github/copilot-instructions.md) for the project rules.
+
 > This tool runs on your computer. It does not remotely control your PC.
 
 ## What this does

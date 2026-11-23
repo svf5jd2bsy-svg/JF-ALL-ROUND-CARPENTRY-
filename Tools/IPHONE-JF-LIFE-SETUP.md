@@ -1,5 +1,7 @@
 # iPhone and iCloud handoff
 
+[← Back to main README and repository map](../README.md) · Related: [Outlook to JF LIFE setup](OUTLOOK-JF-LIFE-SETUP.md) · [Mobile app shell](../mobile/jf-life-mobile/README.md)
+
 The private data on the phone is not mounted in GitHub or Copilot. Complete these
 steps on the iPhone and Windows PC once, then use Outlook and iCloud as the
 ongoing connection.

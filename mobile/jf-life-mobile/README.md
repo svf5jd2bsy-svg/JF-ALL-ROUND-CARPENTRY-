@@ -1,5 +1,7 @@
 # JF LIFE iPhone app shell
 
+[← Back to main README and repository map](../../README.md) · Related: [iPhone and iCloud handoff](../../Tools/IPHONE-JF-LIFE-SETUP.md) · [Companion API source](../../scripts/jf_life_companion_api.py)
+
 This is the iPhone-first app shell that connects to the Windows companion API.
 
 ## Start
