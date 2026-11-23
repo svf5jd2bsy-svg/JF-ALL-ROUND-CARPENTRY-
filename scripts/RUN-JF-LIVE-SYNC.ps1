@@ -10,6 +10,7 @@ param(
     [string]$StripeApiKey = "",
     [string]$XeroAccessToken = "",
     [string]$XeroTenantId = "",
+    [switch]$PublishLibrary,
     [int]$IntervalSeconds = 300,
     [int]$Cycles = 0
 )
@@ -62,6 +63,9 @@ if (-not [string]::IsNullOrWhiteSpace($XeroAccessToken)) {
 }
 if (-not [string]::IsNullOrWhiteSpace($XeroTenantId)) {
     $args += @("--xero-tenant-id", $XeroTenantId)
+}
+if ($PublishLibrary) {
+    $args += "--publish-library"
 }
 
 $runner = Get-PythonRunner

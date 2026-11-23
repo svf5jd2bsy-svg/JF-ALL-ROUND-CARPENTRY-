@@ -12,6 +12,7 @@ if str(SCRIPTS) not in sys.path:
 
 from jf_life_companion_api import (  # noqa: E402
     ensure_pairing_token,
+    run_library_publish,
     source_arguments,
     state_summary,
 )
@@ -45,6 +46,16 @@ class CompanionApiTests(unittest.TestCase):
             args,
             ["--source", "DriveD=D:\\", "--source", "iCloud=C:\\iCloud"],
         )
+
+    def test_library_publish_requires_explicit_confirmation(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            code, stdout, stderr = run_library_publish(
+                Path(temp),
+                {"sources": ["DriveD=D:\\"]},
+            )
+            self.assertEqual(code, 2)
+            self.assertEqual(stdout, "")
+            self.assertIn("Explicit publish confirmation", stderr)
 
     def test_state_summary_reads_private_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp:

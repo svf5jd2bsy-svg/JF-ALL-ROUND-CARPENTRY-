@@ -54,6 +54,8 @@ export default function App() {
   const [pairingToken, setPairingToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [driveSource, setDriveSource] = useState("D:\\");
+  const [icloudSource, setIcloudSource] = useState("");
   const [message, setMessage] = useState("Connect to your Windows companion API.");
   const [summary, setSummary] = useState<Summary | null>(null);
 
@@ -93,6 +95,22 @@ export default function App() {
       setLoading(false);
     }
   };
+
+  const sourceSpecs = () => {
+    const sources: string[] = [];
+    if (driveSource.trim()) sources.push(`DriveD=${driveSource.trim()}`);
+    if (icloudSource.trim()) sources.push(`iCloud=${icloudSource.trim()}`);
+    return sources;
+  };
+
+  const runInventory = () => run("Inventory", "/run/inventory", {
+    sources: sourceSpecs(),
+  });
+
+  const publishLibrary = () => run("Publish library", "/run/library-publish", {
+    sources: sourceSpecs(),
+    publish_confirmed: "PUBLISH_JF_LIFE",
+  });
 
   const refreshSummary = async () => {
     setLoading(true);
@@ -156,6 +174,22 @@ export default function App() {
           placeholder="Pairing token from Windows companion"
           placeholderTextColor="#94a3b8"
         />
+        <TextInput
+          style={styles.input}
+          value={driveSource}
+          onChangeText={setDriveSource}
+          autoCapitalize="none"
+          placeholder="D:\ or JF external drive path"
+          placeholderTextColor="#94a3b8"
+        />
+        <TextInput
+          style={styles.input}
+          value={icloudSource}
+          onChangeText={setIcloudSource}
+          autoCapitalize="none"
+          placeholder="Windows iCloud JF LIFE folder (optional)"
+          placeholderTextColor="#94a3b8"
+        />
         <View style={styles.row}>
           <Button title="Verify Pairing" onPress={verifyPairing} />
           <Button title="Refresh" onPress={refreshSummary} />
@@ -170,7 +204,7 @@ export default function App() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Run companion actions</Text>
           <View style={styles.row}>
-            <Button title="Inventory" onPress={() => run("Inventory", "/run/inventory", {})} />
+            <Button title="Inventory" onPress={runInventory} />
             <Button title="Recovery plan" onPress={() => run("Recovery plan", "/run/recovery-plan")} />
           </View>
           <View style={styles.row}>
@@ -180,6 +214,9 @@ export default function App() {
           <View style={styles.row}>
             <Button title="Outlook apply" onPress={() => run("Outlook apply", "/run/outlook-apply", { apply: true })} />
             <Button title="Dashboard" onPress={() => run("Dashboard", "/run/dashboard")} />
+          </View>
+          <View style={styles.row}>
+            <Button title="Publish library" onPress={publishLibrary} />
           </View>
         </View>
 
