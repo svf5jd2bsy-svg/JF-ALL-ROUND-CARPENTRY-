@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#151a22">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="JF LIFE">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <title>JF LIFE Library Index</title>
+  <style>
+    body { margin: 0; background: #151a22; color: #f6f7fb; font: 16px/1.45 system-ui, sans-serif; }
+    main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; }
+    p { margin: 0 0 14px; color: #c9d3e4; }
+    .pills { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+    .pill { border: 1px solid #59667c; border-radius: 999px; padding: 6px 12px; color: #f0cc73; }
+    .controls { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 14px; }
+    input, select {
+      width: 100%; box-sizing: border-box; border: 1px solid #5d6b80; border-radius: 8px;
+      padding: 10px; background: #202733; color: #f6f7fb;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; border-bottom: 1px solid #3f495a; padding: 10px; vertical-align: top; }
+    th { color: #f0cc73; }
+    a { color: #f0cc73; }
+    .muted { color: #aebad0; }
+    .error { color: #ff8b8b; }
+    .scroll { overflow: auto; }
+    .upload-panel {
+      border: 1px solid #59667c;
+      border-radius: 12px;
+      background: #1d2430;
+      margin: 0 0 16px;
+      padding: 16px;
+    }
+    .upload-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      align-items: end;
+    }
+    .upload-panel button {
+      border: 1px solid #f0cc73;
+      border-radius: 8px;
+      background: #f0cc73;
+      color: #151a22;
+      cursor: pointer;
+      font-weight: 700;
+      min-height: 42px;
+      padding: 8px 14px;
+    }
+    .upload-panel button.secondary {
+      background: transparent;
+      color: #f0cc73;
+    }
+    .drop-zone {
+      border: 1px dashed #71819a;
+      border-radius: 10px;
+      margin-top: 12px;
+      padding: 18px;
+      text-align: center;
+      color: #c9d3e4;
+    }
+    .drop-zone.dragging { border-color: #f0cc73; background: #26303e; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>JF LIFE Library Index</h1>
+  <p>Generated from <code>Organisation/latest/File-Library-Manifest.json</code>.</p>
+  <div class="pills">
+    <span id="totalFiles" class="pill">0 files</span>
+    <span id="totalSize" class="pill">0 B</span>
+    <span id="visibleCount" class="pill">0 visible</span>
+  </div>
+
+  <div class="controls">
+    <label>Find file or path
+      <input id="search" type="search" placeholder="Name, folder, source, hash">
+    </label>
+    <label>Area
+      <select id="areaFilter">
+        <option value="all">All</option>
+        <option value="Business">Business</option>
+        <option value="Personal">Personal</option>
+        <option value="Course">Course</option>
+        <option value="Needs-review">Needs-review</option>
+      </select>
+    </label>
+    <label>Source label
+      <select id="sourceFilter">
+        <option value="all">All</option>
+      </select>
+    </label>
+    <label>Open a local manifest
+      <input id="manifestPicker" type="file" accept=".json,application/json">
+    </label>
+  </div>
+
+  <section class="upload-panel" aria-label="Add JF LIFE sources">
+    <h2>Add JF LIFE sources</h2>
+    <p>Files stay in this browser/app until you export or publish them. Choose a
+      source label, then select files or a folder.</p>
+    <div class="upload-grid">
+      <label>Source label
+        <input id="sourceLabel" value="Phone upload" placeholder="D drive, iCloud, ChatGPT, Phone">
+      </label>
+      <label>Add files
+        <input id="filePicker" type="file" multiple>
+      </label>
+      <label>Open a folder
+        <input id="folderPicker" type="file" webkitdirectory directory multiple>
+      </label>
+      <button id="exportManifest" type="button" class="secondary">Export manifest</button>
+      <button id="clearUploads" type="button" class="secondary">Clear local uploads</button>
+    </div>
+    <div id="dropZone" class="drop-zone">
+      Drop files here (desktop browser)
+    </div>
+  </section>
+
+  <p id="status" class="muted">Loading manifest...</p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+      <tr>
+        <th>File</th>
+        <th>Area</th>
+        <th>Source</th>
+        <th>Size</th>
+        <th>Status</th>
+      </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  const manifestCandidates = [
+    "../Organisation/latest/File-Library-Manifest.json",
+    "Organisation/latest/File-Library-Manifest.json"
+  ];
+  const rowsElement = document.getElementById("rows");
+  const searchInput = document.getElementById("search");
+  const areaFilter = document.getElementById("areaFilter");
+  const sourceFilter = document.getElementById("sourceFilter");
+  const manifestPicker = document.getElementById("manifestPicker");
+  const filePicker = document.getElementById("filePicker");
+  const folderPicker = document.getElementById("folderPicker");
+  const sourceLabel = document.getElementById("sourceLabel");
+  const dropZone = document.getElementById("dropZone");
+  const exportManifestButton = document.getElementById("exportManifest");
+  const clearUploadsButton = document.getElementById("clearUploads");
+  const statusEl = document.getElementById("status");
+
+  let records = [];
+  let uploadedRecords = [];
+  let outputRoot = "Library";
+
+  function formatBytes(value) {
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let size = value;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${size.toFixed(size < 10 && unit > 0 ? 2 : 1)} ${units[unit]}`;
+  }
+
+  function buildSourceFilter(items) {
+    const labels = Array.from(new Set(items.map((item) => item.source_label).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    sourceFilter.innerHTML = '<option value="all">All</option>';
+    labels.forEach((label) => {
+      const opt = document.createElement("option");
+      opt.value = label;
+      opt.textContent = label;
+      sourceFilter.appendChild(opt);
+    });
+  }
+
+  function getLinkedTarget(item) {
+    const target = item.deduplicated_to || item.target_path || "";
+    const parts = `${outputRoot}/${target}`.split("/").filter((part) => part && part !== ".");
+    if (parts.some((part) => part === "..")) return null;
+    return `../${parts.map(encodeURIComponent).join("/")}`;
+  }
+
+  function addText(parent, value, className) {
+    const element = document.createElement(className ? "div" : "span");
+    if (className) element.className = className;
+    element.textContent = value == null ? "" : String(value);
+    parent.appendChild(element);
+  }
+
+  function render() {
+    const q = searchInput.value.trim().toLowerCase();
+    const area = areaFilter.value;
+    const source = sourceFilter.value;
+    let visible = 0;
+
+    rowsElement.innerHTML = "";
+    records.forEach((item) => {
+      const textBlob = `${item.relative_path} ${item.target_path} ${item.source_label} ${item.sha256}`.toLowerCase();
+      const matchesSearch = !q || textBlob.includes(q);
+      const matchesArea = area === "all" || item.area === area;
+      const matchesSource = source === "all" || item.source_label === source;
+      if (!matchesSearch || !matchesArea || !matchesSource) return;
+
+      visible += 1;
+      const row = document.createElement("tr");
+      const status = item.deduplicated_to ? `Deduplicated to ${item.deduplicated_to}` : "Linked";
+      const fileCell = document.createElement("td");
+      const href = item._blob
+        ? URL.createObjectURL(item._blob)
+        : getLinkedTarget(item);
+      const fileName = item.relative_path.split("/").pop();
+      if (href) {
+        const link = document.createElement("a");
+        link.href = href;
+        link.textContent = fileName;
+        fileCell.appendChild(link);
+      } else {
+        addText(fileCell, fileName);
+      }
+      addText(fileCell, item.relative_path, "muted");
+      row.appendChild(fileCell);
+      const values = [item.area, item.source_label, formatBytes(item.size_bytes), status];
+      values.forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+      rowsElement.appendChild(row);
+    });
+
+    document.getElementById("visibleCount").textContent = `${visible} visible`;
+    statusEl.textContent = `${visible} of ${records.length} files shown`;
+    statusEl.className = "muted";
+  }
+
+  function applyManifest(manifest, sourceName) {
+    if (!manifest || !Array.isArray(manifest.files)) {
+      throw new Error("The selected JSON is not a JF LIFE file manifest.");
+    }
+    records = [...manifest.files, ...uploadedRecords];
+    outputRoot = typeof manifest.output_root === "string" && manifest.output_root
+      ? manifest.output_root
+      : "Library";
+    const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+    document.getElementById("totalFiles").textContent = `${records.length} files`;
+    document.getElementById("totalSize").textContent = formatBytes(totalBytes);
+    buildSourceFilter(records);
+    render();
+    if (sourceName) statusEl.textContent = `Loaded ${records.length} files from ${sourceName}`;
+  }
+
+  async function loadManifest() {
+    for (const candidate of manifestCandidates) {
+      try {
+        const res = await fetch(candidate, { cache: "no-store" });
+        if (!res.ok) continue;
+        applyManifest(await res.json());
+        return;
+      } catch (error) {
+        // Try next candidate path.
+      }
+    }
+    statusEl.textContent = "Manifest not found. Run the linker, or choose File-Library-Manifest.json above.";
+    statusEl.className = "error";
+  }
+
+  function openUploadDb() {
+    return new Promise((resolve, reject) => {
+      if (!("indexedDB" in window)) {
+        reject(new Error("This browser does not support private local file storage."));
+        return;
+      }
+      const request = indexedDB.open("jf-life-library", 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains("uploads")) {
+          db.createObjectStore("uploads", { keyPath: "id" });
+        }
+      };
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+  }
+
+  async function saveUpload(record) {
+    const db = await openUploadDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("uploads", "readwrite");
+      tx.objectStore("uploads").put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function loadUploads() {
+    const db = await openUploadDb();
+    const saved = await new Promise((resolve, reject) => {
+      const tx = db.transaction("uploads", "readonly");
+      const request = tx.objectStore("uploads").getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    });
+    uploadedRecords = saved.map((item) => ({
+      ...item.record,
+      _blob: item.blob,
+      _upload: true
+    }));
+    if (uploadedRecords.length) {
+      records = [...records, ...uploadedRecords];
+      const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+      document.getElementById("totalFiles").textContent = `${records.length} files`;
+      document.getElementById("totalSize").textContent = formatBytes(totalBytes);
+      buildSourceFilter(records);
+      render();
+    }
+  }
+
+  async function sha256(file) {
+    const bytes = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  }
+
+  function classifyArea(name, relativePath) {
+    const text = `${name} ${relativePath}`.toLowerCase();
+    const groups = [
+      ["Business", ["business", "company", "invoice", "quote", "accounts", "gst", "abn", "job", "work", "payroll"]],
+      ["Course", ["course", "training", "tafe", "assessment", "certificate", "apprentice", "evr"]],
+      ["Personal", ["personal", "family", "medical", "tax", "private", "photo", "contact", "message"]]
+    ];
+    for (const [area, hints] of groups) {
+      if (hints.some((hint) => text.includes(hint))) return area;
+    }
+    return "Needs-review";
+  }
+
+  function safeRelativePath(file) {
+    const raw = file.webkitRelativePath || file.name || "uploaded-file";
+    return raw.split("\\").join("/").split("/").filter((part) =>
+      part && part !== "." && part !== ".."
+    ).join("/");
+  }
+
+  async function processUploads(files) {
+    const selected = Array.from(files || []);
+    if (!selected.length) return;
+    const label = sourceLabel.value.trim() || "Phone upload";
+    statusEl.textContent = `Adding ${selected.length} file(s)...`;
+    statusEl.className = "muted";
+    const seen = new Set(records.map((item) => item.sha256).filter(Boolean));
+
+    for (const file of selected) {
+      if (file.size > 95 * 1024 * 1024) {
+        statusEl.textContent = `Skipped ${file.name}: larger than 95 MB (GitHub limit guard).`;
+        statusEl.className = "error";
+        continue;
+      }
+      const relativePath = safeRelativePath(file);
+      const hash = await sha256(file);
+      const duplicate = seen.has(hash);
+      seen.add(hash);
+      const area = classifyArea(file.name, relativePath);
+      const targetPath = `${area}/${relativePath}`;
+      const record = {
+        relative_path: relativePath,
+        target_path: targetPath,
+        source_label: label,
+        size_bytes: file.size,
+        sha256: hash,
+        area,
+        deduplicated_to: duplicate ? targetPath : "",
+        status: duplicate ? "deduplicated" : "uploaded"
+      };
+      await saveUpload({ id: `${label}:${relativePath}:${hash}`, record, blob: file });
+      if (!uploadedRecords.some((item) => item.sha256 === hash)) {
+        uploadedRecords.push({ ...record, _blob: file, _upload: true });
+      }
+    }
+
+    records = [...records.filter((item) => !item._upload), ...uploadedRecords];
+    const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+    document.getElementById("totalFiles").textContent = `${records.length} files`;
+    document.getElementById("totalSize").textContent = formatBytes(totalBytes);
+    buildSourceFilter(records);
+    render();
+    statusEl.textContent = `Added ${selected.length} source file(s) to this app. Export the manifest before publishing.`;
+  }
+
+  function exportManifest() {
+    const exported = {
+      manifest_version: 1,
+      generated_at: new Date().toISOString(),
+      output_root: outputRoot,
+      files: records.map((item) => {
+        const clean = { ...item };
+        delete clean._blob;
+        delete clean._upload;
+        return clean;
+      })
+    };
+    const blob = new Blob([JSON.stringify(exported, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "File-Library-Manifest.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function clearUploads() {
+    const db = await openUploadDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("uploads", "readwrite");
+      tx.objectStore("uploads").clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    uploadedRecords = [];
+    records = records.filter((item) => !item._upload);
+    const totalBytes = records.reduce((sum, item) => sum + (item.size_bytes || 0), 0);
+    document.getElementById("totalFiles").textContent = `${records.length} files`;
+    document.getElementById("totalSize").textContent = formatBytes(totalBytes);
+    buildSourceFilter(records);
+    render();
+    statusEl.textContent = "Local app uploads cleared.";
+  }
+
+  manifestPicker.addEventListener("change", async () => {
+    const file = manifestPicker.files && manifestPicker.files[0];
+    if (!file) return;
+    try {
+      applyManifest(JSON.parse(await file.text()), file.name);
+    } catch (error) {
+      statusEl.textContent = `Could not load manifest: ${error.message}`;
+      statusEl.className = "error";
+    }
+  });
+  filePicker.addEventListener("change", () => processUploads(filePicker.files));
+  folderPicker.addEventListener("change", () => processUploads(folderPicker.files));
+  dropZone.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    dropZone.classList.add("dragging");
+  });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
+  dropZone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    dropZone.classList.remove("dragging");
+    processUploads(event.dataTransfer.files);
+  });
+  exportManifestButton.addEventListener("click", exportManifest);
+  clearUploadsButton.addEventListener("click", () => clearUploads().catch((error) => {
+    statusEl.textContent = `Could not clear local uploads: ${error.message}`;
+    statusEl.className = "error";
+  }));
+  searchInput.addEventListener("input", render);
+  areaFilter.addEventListener("change", render);
+  sourceFilter.addEventListener("change", render);
+  loadManifest().finally(() => loadUploads().catch((error) => {
+    statusEl.textContent = `Local upload storage unavailable: ${error.message}`;
+    statusEl.className = "error";
+  }));
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JF LIFE Local Control Centre</title>
+  <style>
+    :root { color-scheme: dark; --bg: #111827; --panel: #1f2937; --line: #4b5563; --gold: #f0cc73; --text: #f9fafb; --muted: #cbd5e1; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, sans-serif; }
+    main { max-width: 1400px; margin: auto; padding: 24px; }
+    h1, h2 { margin-top: 0; }
+    h1 { margin-bottom: 6px; }
+    .muted { color: var(--muted); }
+    .warning { color: #fdba74; }
+    .cards, .grid { display: grid; gap: 14px; }
+    .cards { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 20px 0; }
+    .grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+    .card, section { border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--panel); overflow: auto; }
+    .metric { color: var(--gold); font-size: 1.75rem; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { color: var(--gold); }
+    code, .path { overflow-wrap: anywhere; }
+    .badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px; }
+    .approved { color: #86efac; }
+    .pending { color: #fdba74; }
+    ul { padding-left: 22px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>JF LIFE Local Control Centre</h1>
+  <p class="muted" id="generated"></p>
+  <p class="warning">Private local-only view. Do not upload this page, its reports, Outlook tokens, or local paths.</p>
+  <div id="cards" class="cards"></div>
+  <div class="grid">
+    <section>
+      <h2>Source inventory</h2>
+      <div id="sources"></div>
+    </section>
+    <section>
+      <h2>Duplicate review</h2>
+      <div id="duplicates"></div>
+    </section>
+    <section>
+      <h2>Outlook actions</h2>
+      <div id="outlookActions"></div>
+    </section>
+    <section>
+      <h2>Outlook totals</h2>
+      <div id="outlookTotals"></div>
+    </section>
+    <section>
+      <h2>iPhone and iCloud handoff</h2>
+      <div id="iphone"></div>
+    </section>
+  </div>
+</main>
+<script>
+  const state = /*__JF_LIFE_STATE__*/;
+
+  function textElement(tag, value, className) {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    element.textContent = value == null ? "" : String(value);
+    return element;
+  }
+
+  function addCard(container, label, value) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.append(textElement("div", label, "muted"), textElement("div", value, "metric"));
+    container.appendChild(card);
+  }
+
+  function addTable(container, headers, rows) {
+    container.replaceChildren();
+    if (!rows.length) {
+      container.appendChild(textElement("p", "No items yet.", "muted"));
+      return;
+    }
+    const table = document.createElement("table");
+    const headRow = document.createElement("tr");
+    headers.forEach((header) => headRow.appendChild(textElement("th", header)));
+    table.appendChild(headRow);
+    rows.forEach((row) => {
+      const tr = document.createElement("tr");
+      row.forEach((value) => tr.appendChild(textElement("td", value)));
+      table.appendChild(tr);
+    });
+    container.appendChild(table);
+  }
+
+  function formatBytes(value) {
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let size = value;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${size.toFixed(unit ? 1 : 0)} ${units[unit]}`;
+  }
+
+  document.getElementById("generated").textContent =
+    `Generated ${state.generated_at_utc}; data remains on this Windows PC.`;
+
+  const inventory = state.inventory || {};
+  const summary = inventory.summary || {};
+  const outlook = state.outlook || {};
+  const actions = state.outlook_actions || {};
+  const cards = document.getElementById("cards");
+  addCard(cards, "Files inventoried", summary.files_inventoried || 0);
+  addCard(cards, "Exact duplicate groups", summary.duplicate_groups || 0);
+  addCard(cards, "Potential recovery space", formatBytes(summary.recoverable_bytes || 0));
+  addCard(cards, "Outlook messages", (outlook.mail || []).length);
+  addCard(cards, "Outlook tasks", (outlook.tasks || []).length);
+  addCard(cards, "Outlook contacts", (outlook.contacts || []).length);
+  addCard(cards, "Approved pending actions", (actions.actions || []).filter((item) => item.approved && item.status !== "applied").length);
+
+  addTable(
+    document.getElementById("sources"),
+    ["Label", "Status", "Seen", "Inventoried"],
+    (inventory.sources || []).map((item) => [
+      item.label,
+      item.status,
+      item.files_seen || 0,
+      item.files_inventoried || 0,
+    ])
+  );
+
+  addTable(
+    document.getElementById("duplicates"),
+    ["Group", "Candidates", "Potential space", "Approval"],
+    (inventory.duplicate_groups || []).map((item) => [
+      item.group_id.slice(0, 12),
+      item.candidate_count,
+      formatBytes(item.recoverable_bytes || 0),
+      "Pending review",
+    ])
+  );
+
+  addTable(
+    document.getElementById("outlookActions"),
+    ["Action", "Approval", "Status"],
+    (actions.actions || []).slice(0, 250).map((item) => [
+      item.summary,
+      item.approved ? "Approved" : "Pending review",
+      item.status || "planned",
+    ])
+  );
+
+  addTable(
+    document.getElementById("outlookTotals"),
+    ["Type", "Count"],
+    [
+      ["Connected account", (outlook.account && outlook.account.mail) || "Not connected"],
+      ["Messages in local snapshot", (outlook.mail || []).length],
+      ["Calendar events", (outlook.calendar || []).length],
+      ["Outlook tasks", (outlook.tasks || []).length],
+      ["Contacts", (outlook.contacts || []).length],
+      ["Possible contact duplicate groups", (outlook.contact_duplicate_groups || []).length],
+    ]
+  );
+
+  const iphone = document.getElementById("iphone");
+  const list = document.createElement("ul");
+  [
+    "iCloud Drive is enabled on iPhone and iCloud for Windows is signed in.",
+    "Outlook is the primary mailbox and Outlook To Do sync is enabled on iPhone.",
+    "The JF LIFE capture Shortcut saves to iCloud Drive/JF LIFE/Inbox.",
+    "Alarm times, Focus modes, widgets, and Home Screen placement were reviewed on-device.",
+  ].forEach((label) => list.appendChild(textElement("li", label)));
+  iphone.appendChild(list);
+</script>
+</body>
+</html>

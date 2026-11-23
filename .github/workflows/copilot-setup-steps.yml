@@ -1,0 +1,30 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/copilot-setup-steps.yml"
+      - "scripts/**"
+      - "tests/**"
+  pull_request:
+    paths:
+      - ".github/workflows/copilot-setup-steps.yml"
+      - "scripts/**"
+      - "tests/**"
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Validate project
+        run: python -m unittest discover -s tests -v

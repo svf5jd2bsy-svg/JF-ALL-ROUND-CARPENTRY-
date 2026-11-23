@@ -1,0 +1,18 @@
+REM JF LIFE source helper for your own unlocked Windows PC
+REM First extract the reviewed Windows support ZIP in your current Windows Downloads folder.
+REM Starts an ordinary visible command window. Nothing is downloaded or uploaded here.
+DELAY 1500
+GUI r
+DELAY 1000
+STRING cmd.exe /d /k
+ENTER
+DELAY 1000
+STRING set "JF_DOWNLOADS="
+ENTER
+STRING for /f "delims=" %D in ('powershell.exe -NoProfile -NonInteractive -Command "$p='';try{$p=(Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -Name '{374DE290-123F-4565-9164-39C4925E467B}' -ErrorAction Stop).'{374DE290-123F-4565-9164-39C4925E467B}';$p=[Environment]::ExpandEnvironmentVariables([string]$p)}catch{};if([string]::IsNullOrWhiteSpace($p)){$p=Join-Path $env:USERPROFILE 'Downloads'};[Console]::WriteLine($p)" 2^>nul') do set "JF_DOWNLOADS=%D"
+ENTER
+DELAY 2000
+STRING if not defined JF_DOWNLOADS set "JF_DOWNLOADS=%USERPROFILE%\Downloads"
+ENTER
+STRING if exist "%JF_DOWNLOADS%\JF_LIFE_Local_Sources\START-JF-SOURCES.cmd" ("%JF_DOWNLOADS%\JF_LIFE_Local_Sources\START-JF-SOURCES.cmd") else if exist "%JF_DOWNLOADS%\JF_LIFE_Local_Sources_Windows\JF_LIFE_Local_Sources\START-JF-SOURCES.cmd" ("%JF_DOWNLOADS%\JF_LIFE_Local_Sources_Windows\JF_LIFE_Local_Sources\START-JF-SOURCES.cmd") else echo JF helper not found. Extract the reviewed support ZIP in your current Windows Downloads folder first.
+ENTER
