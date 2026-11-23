@@ -152,6 +152,7 @@ def create_handler(state_dir: Path, token: str) -> type[BaseHTTPRequestHandler]:
                 "/run/outlook-plan": lambda body: run_outlook_plan(state_dir, body),
                 "/run/outlook-apply": lambda body: run_outlook_apply(state_dir, body),
                 "/run/dashboard": lambda body: run_dashboard(state_dir, body),
+                "/run/library-publish": lambda body: run_library_publish(state_dir, body),
             }
             runner = handlers.get(parsed.path)
             if runner is None:
@@ -205,6 +206,16 @@ def run_inventory(state_dir: Path, body: dict[str, Any]) -> tuple[int, str, str]
     if "--source" not in args:
         return 2, "", "At least one source is required."
     return run_python("scripts/jf_life_inventory.py", *args)
+
+
+def run_library_publish(state_dir: Path, body: dict[str, Any]) -> tuple[int, str, str]:
+    if body.get("publish_confirmed") != "PUBLISH_JF_LIFE":
+        return 2, "", "Explicit publish confirmation is required."
+    args = [*source_arguments(body), *optional_glob_arguments("includes", body), *optional_glob_arguments("excludes", body)]
+    if "--source" not in args:
+        return 2, "", "At least one source is required."
+    args += ["--git-commit", "--git-push"]
+    return run_python("scripts/jf_life_link.py", *args)
 
 
 def run_recovery_plan(state_dir: Path, _body: dict[str, Any]) -> tuple[int, str, str]:

@@ -124,6 +124,15 @@ def run_cycle(args: argparse.Namespace, cycle_index: int, state_dir: Path) -> di
         "dashboard", "scripts/jf_life_dashboard.py", "--state-dir", str(state_dir)
     )
 
+    library_publish_ok = True
+    if args.publish_library:
+        library_args = [*sources, *filters, "--git-commit", "--git-push"]
+        library_publish_ok = record_step(
+            "library-publish",
+            "scripts/jf_life_link.py",
+            *library_args,
+        )
+
     integration_status = {
         "stripe": stripe_status(args.stripe_api_key),
         "xero": xero_status(args.xero_access_token, args.xero_tenant_id),
@@ -146,6 +155,7 @@ def run_cycle(args: argparse.Namespace, cycle_index: int, state_dir: Path) -> di
             and recovery_plan_ok
             and recovery_apply_ok
             and dashboard_ok
+            and library_publish_ok
             and outlook_ok
             and integration_status["ok"]
         ),
@@ -168,6 +178,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stripe-api-key", default="")
     parser.add_argument("--xero-access-token", default="")
     parser.add_argument("--xero-tenant-id", default="")
+    parser.add_argument("--publish-library", action="store_true", help="Commit and push reviewed Library output on every cycle.")
     parser.add_argument("--interval-seconds", type=int, default=300)
     parser.add_argument("--cycles", type=int, default=0, help="0 means run forever.")
     return parser.parse_args()

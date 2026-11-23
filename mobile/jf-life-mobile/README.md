@@ -27,5 +27,10 @@ This is the iPhone-first app shell that connects to the Windows companion API.
 The app can trigger inventory, recovery-plan, Outlook inventory/plan/apply, and
 dashboard generation through the companion API.
 
+Enter the Windows JF (D:) path and iCloud JF LIFE path in the app before
+running Inventory. The app includes a **Publish library** action; it uses
+explicit confirmation and requires the Windows companion to have repository
+push access. Keep the repository private before publishing personal files.
+
 Alarms, Home Screen widgets, and iOS Messages still require on-device iPhone
 configuration; they are not remotely controlled from this app shell.

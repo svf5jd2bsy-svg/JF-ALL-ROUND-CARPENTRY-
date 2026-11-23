@@ -26,6 +26,7 @@ This repository now includes a local sync tool to link files from your computer 
 **Scripts (scripts/)**
 
 - Linking: [jf_life_link.py](scripts/jf_life_link.py) · [connect_jf_life.ps1](scripts/connect_jf_life.ps1) · [RUN-JF-LINK.cmd](scripts/RUN-JF-LINK.cmd)
+- One-click upload: [RUN-JF-UPLOAD.cmd](scripts/RUN-JF-UPLOAD.cmd) · [RUN-JF-UPLOAD.ps1](scripts/RUN-JF-UPLOAD.ps1)
 - Bootstrap: [bootstrap_windows.ps1](scripts/bootstrap_windows.ps1)
 - Local control centre: [jf_life_local.py](scripts/jf_life_local.py) · [RUN-JF-LIFE-LOCAL.ps1](scripts/RUN-JF-LIFE-LOCAL.ps1) · [RUN-JF-LIFE-LOCAL.cmd](scripts/RUN-JF-LIFE-LOCAL.cmd)
 - Live sync: [jf_life_live_sync.py](scripts/jf_life_live_sync.py) · [RUN-JF-LIVE-SYNC.ps1](scripts/RUN-JF-LIVE-SYNC.ps1) · [RUN-JF-LIVE-SYNC.cmd](scripts/RUN-JF-LIVE-SYNC.cmd)
@@ -204,6 +205,25 @@ The library is an installable Progressive Web App, not just a webpage:
 - The app shell ([manifest](App/manifest.webmanifest) +
   [service worker](App/sw.js)) caches the interface; library data always
   loads fresh from the network when available.
+
+### Upload JF LIFE, iCloud, D:, and ChatGPT sources
+
+On the Windows PC connected to JF (D:) and iCloud, run:
+
+```bat
+scripts\RUN-JF-UPLOAD.cmd
+```
+
+The launcher inventories D:, iCloud, and ChatGPT exports found under Desktop,
+Documents, Downloads, or OneDrive. It creates the private dashboard and
+review plan; it does not delete or move source files. Publishing is explicit:
+
+```bat
+scripts\RUN-JF-UPLOAD.cmd -PublishLibrary
+```
+
+Publishing is blocked while this repository is public. Make the repository
+private before publishing personal JF LIFE sources.
 
 ## Local Outlook, iPhone, and full-device workflow
 
