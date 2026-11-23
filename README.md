@@ -8,7 +8,8 @@ This repository now includes a local sync tool to link files from your computer 
 
 - [README (this file)](README.md) — full JF LIFE guide
 - [Repository entry page](index.html) — redirects to the library index
-- [Library web app](App/Library-Index.html) — searchable file library (GitHub Pages ready)
+- [Library web app](App/Library-Index.html) — searchable file library (GitHub Pages ready, installable as an app)
+- PWA: [app manifest](App/manifest.webmanifest) · [service worker](App/sw.js) · [icons](App/icons)
 
 **Setup guides (Tools/)**
 
@@ -190,6 +191,19 @@ It reads the manifest file and provides search/filter for your linked files. If
 you opened the page directly from disk, use **Open a local manifest** to select
 `Organisation/latest/File-Library-Manifest.json`. The repository root also links
 to the index, so a GitHub Pages root deployment opens the library directly.
+
+### Install as an app (iPhone, Android, Windows, Mac)
+
+The library is an installable Progressive Web App, not just a webpage:
+
+- **iPhone/iPad:** open the Pages site in Safari, tap **Share > Add to Home
+  Screen**. It launches full-screen with the JF LIFE icon and works offline for
+  the app shell.
+- **Android / Chrome / Edge:** open the site and use **Install app** from the
+  browser menu (or the install icon in the address bar).
+- The app shell ([manifest](App/manifest.webmanifest) +
+  [service worker](App/sw.js)) caches the interface; library data always
+  loads fresh from the network when available.
 
 ## Local Outlook, iPhone, and full-device workflow
 
