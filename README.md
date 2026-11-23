@@ -49,6 +49,7 @@ This repository now includes a local sync tool to link files from your computer 
 - Agents: [JF Life Maintainer](.github/agents/jf-life-maintainer.agent.md) · [JF Life Reviewer](.github/agents/jf-life-reviewer.agent.md)
 - Plugin: [jf-life-maintenance](plugins/jf-life-maintenance/plugin.json) · [maintenance agent](plugins/jf-life-maintenance/com.github.copilot/agents/jf-life-maintenance.agent.md) · [jf-life-sync skill](plugins/jf-life-maintenance/skills/jf-life-sync/SKILL.md)
 - Cloud setup workflow: [copilot-setup-steps.yml](.github/workflows/copilot-setup-steps.yml)
+- GitHub Pages deploy workflow: [pages.yml](.github/workflows/pages.yml)
 
 > ChatGPT / other assistants: start at this map, then read
 > [copilot-instructions.md](.github/copilot-instructions.md) for the project rules.
