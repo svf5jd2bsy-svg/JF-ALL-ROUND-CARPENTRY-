@@ -23,14 +23,12 @@ if errorlevel 1 (
   python scripts\jf_life_link.py ^
     --source "iCloud=%ICLOUD_PATH%" ^
     --source "ExternalD=%DRIVE_D_PATH%" ^
-    --git-commit ^
-    --git-push %*
+    %*
 ) else (
   py -3 scripts\jf_life_link.py ^
     --source "iCloud=%ICLOUD_PATH%" ^
     --source "ExternalD=%DRIVE_D_PATH%" ^
-    --git-commit ^
-    --git-push %*
+    %*
 )
 
 set "EXIT_CODE=%ERRORLEVEL%"

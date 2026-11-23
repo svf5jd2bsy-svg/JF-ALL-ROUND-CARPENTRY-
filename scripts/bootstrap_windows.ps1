@@ -9,7 +9,8 @@ param(
     [switch]$NoPush,
     [switch]$DryRun,
     [switch]$LocalControl,
-    [string]$OutlookClientId = ""
+    [string]$OutlookClientId = "",
+    [switch]$Push
 )
 
 $ErrorActionPreference = "Stop"
@@ -351,7 +352,7 @@ foreach ($pattern in $IncludePattern) {
 foreach ($pattern in $ExcludePattern) {
     $linkArgs += @("--exclude", $pattern)
 }
-if (-not $NoPush -and -not $DryRun) {
+if ($Push -and -not $NoPush -and -not $DryRun) {
     $linkArgs += @("--git-commit", "--git-push")
 }
 

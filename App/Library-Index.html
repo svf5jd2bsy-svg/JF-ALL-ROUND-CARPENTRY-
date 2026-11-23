@@ -110,17 +110,18 @@
         <input id="sourceLabel" value="Phone upload" placeholder="D drive, iCloud, ChatGPT, Phone">
       </label>
       <label>Add files
-        <input id="filePicker" type="file" multiple>
+        <input id="filePicker" type="file" multiple disabled>
       </label>
       <label>Open a folder
-        <input id="folderPicker" type="file" webkitdirectory directory multiple>
+        <input id="folderPicker" type="file" webkitdirectory directory multiple disabled>
       </label>
       <button id="exportManifest" type="button" class="secondary">Export manifest</button>
-      <button id="clearUploads" type="button" class="secondary">Clear local uploads</button>
+      <button id="clearUploads" type="button" class="secondary" disabled>Clear local uploads</button>
     </div>
     <div id="dropZone" class="drop-zone">
       Drop files here (desktop browser)
     </div>
+    <p id="uploadStatus" role="status" hidden></p>
   </section>
 
   <p id="status" class="muted">Loading manifest...</p>
@@ -158,10 +159,12 @@
   const exportManifestButton = document.getElementById("exportManifest");
   const clearUploadsButton = document.getElementById("clearUploads");
   const statusEl = document.getElementById("status");
+  const uploadStatus = document.getElementById("uploadStatus");
 
   let records = [];
   let uploadedRecords = [];
   let outputRoot = "Library";
+  let uploadsAvailable = false;
 
   function formatBytes(value) {
     if (!Number.isFinite(value) || value <= 0) return "0 B";
@@ -355,8 +358,10 @@
   }
 
   async function processUploads(files) {
+    if (!uploadsAvailable) return;
     const selected = Array.from(files || []);
     if (!selected.length) return;
+    uploadStatus.hidden = true;
     const label = sourceLabel.value.trim() || "Phone upload";
     statusEl.textContent = `Adding ${selected.length} file(s)...`;
     statusEl.className = "muted";
@@ -397,6 +402,13 @@
     buildSourceFilter(records);
     render();
     statusEl.textContent = `Added ${selected.length} source file(s) to this app. Export the manifest before publishing.`;
+  }
+
+  function addFiles(files) {
+    processUploads(files).catch((error) => {
+      uploadStatus.textContent = `Could not finish adding files: ${error.message}`;
+      uploadStatus.hidden = false;
+    });
   }
 
   function exportManifest() {
@@ -448,17 +460,17 @@
       statusEl.className = "error";
     }
   });
-  filePicker.addEventListener("change", () => processUploads(filePicker.files));
-  folderPicker.addEventListener("change", () => processUploads(folderPicker.files));
+  filePicker.addEventListener("change", () => addFiles(filePicker.files));
+  folderPicker.addEventListener("change", () => addFiles(folderPicker.files));
   dropZone.addEventListener("dragover", (event) => {
     event.preventDefault();
-    dropZone.classList.add("dragging");
+    if (uploadsAvailable) dropZone.classList.add("dragging");
   });
   dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
   dropZone.addEventListener("drop", (event) => {
     event.preventDefault();
     dropZone.classList.remove("dragging");
-    processUploads(event.dataTransfer.files);
+    addFiles(event.dataTransfer.files);
   });
   exportManifestButton.addEventListener("click", exportManifest);
   clearUploadsButton.addEventListener("click", () => clearUploads().catch((error) => {
@@ -468,10 +480,16 @@
   searchInput.addEventListener("input", render);
   areaFilter.addEventListener("change", render);
   sourceFilter.addEventListener("change", render);
-  loadManifest().finally(() => loadUploads().catch((error) => {
-    statusEl.textContent = `Local upload storage unavailable: ${error.message}`;
-    statusEl.className = "error";
-  }));
+  loadManifest().then(loadUploads).then(() => {
+    uploadsAvailable = true;
+    filePicker.disabled = false;
+    folderPicker.disabled = false;
+    clearUploadsButton.disabled = false;
+  }).catch(() => {
+    dropZone.hidden = true;
+    uploadStatus.textContent = "Local file storage is unavailable in this browser. You can still open, search and export a manifest.";
+    uploadStatus.hidden = false;
+  });
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }

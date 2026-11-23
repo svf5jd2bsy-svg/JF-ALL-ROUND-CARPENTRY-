@@ -54,8 +54,9 @@ const bytes = (value?: number): string => {
 };
 
 export default function App() {
-  const [apiBase, setApiBase] = useState("http://192.168.0.100:8712");
+  const [apiBase, setApiBase] = useState("");
   const [pairingToken, setPairingToken] = useState("");
+  const [settingsStatus, setSettingsStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const [loading, setLoading] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [driveSource, setDriveSource] = useState("D:\\");
@@ -64,45 +65,57 @@ export default function App() {
   const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
+    let active = true;
     Promise.all([
       SecureStore.getItemAsync("jf-life-api-base"),
       SecureStore.getItemAsync("jf-life-pairing-token"),
       SecureStore.getItemAsync("jf-life-drive-source"),
       SecureStore.getItemAsync("jf-life-icloud-source"),
     ]).then(([savedApi, savedToken, savedDrive, savedICloud]) => {
-      if (savedApi) setApiBase(savedApi);
-      if (savedToken) setPairingToken(savedToken);
-      if (savedDrive) setDriveSource(savedDrive);
-      if (savedICloud) setIcloudSource(savedICloud);
-    }).catch(() => undefined);
+      if (!active) return;
+      setApiBase(savedApi ?? "");
+      setPairingToken(savedToken ?? "");
+      setDriveSource(savedDrive ?? "D:\\");
+      setIcloudSource(savedICloud ?? "");
+      setSettingsStatus("ready");
+    }).catch(() => {
+      if (active) setSettingsStatus("unavailable");
+    });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
+    if (settingsStatus !== "ready") return;
     SecureStore.setItemAsync("jf-life-api-base", apiBase).catch(() => undefined);
-  }, [apiBase]);
+  }, [apiBase, settingsStatus]);
 
   useEffect(() => {
+    if (settingsStatus !== "ready") return;
     SecureStore.setItemAsync("jf-life-pairing-token", pairingToken).catch(() => undefined);
-  }, [pairingToken]);
+  }, [pairingToken, settingsStatus]);
 
   useEffect(() => {
+    if (settingsStatus !== "ready") return;
     SecureStore.setItemAsync("jf-life-drive-source", driveSource).catch(() => undefined);
-  }, [driveSource]);
+  }, [driveSource, settingsStatus]);
 
   useEffect(() => {
+    if (settingsStatus !== "ready") return;
     SecureStore.setItemAsync("jf-life-icloud-source", icloudSource).catch(() => undefined);
-  }, [icloudSource]);
+  }, [icloudSource, settingsStatus]);
 
   const call = async <T,>(
     path: string,
     init: RequestInit = {}
   ): Promise<T> => {
+    const baseUrl = apiBase.trim().replace(/\/+$/, "");
+    if (!baseUrl) throw new Error("Enter the companion address shown on your Windows PC.");
     const headers = new Headers(init.headers);
     headers.set("Content-Type", "application/json");
     if (pairingToken.trim()) {
       headers.set("Authorization", `Bearer ${pairingToken.trim()}`);
     }
-    const response = await fetch(`${apiBase.replace(/\/+$/, "")}${path}`, {
+    const response = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers,
     });
@@ -208,7 +221,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!autoRefresh || !pairingToken.trim()) return;
+    if (!autoRefresh || !apiBase.trim() || !pairingToken.trim()) return;
     const timer = setInterval(() => {
       refreshSummary().catch(() => undefined);
     }, 20000);
@@ -240,10 +253,15 @@ export default function App() {
           iPhone-first app linked to your Windows companion
         </Text>
 
+        {settingsStatus === "loading" && <Text style={styles.message}>Loading saved settings…</Text>}
+        {settingsStatus === "unavailable" && (
+          <Text style={styles.message}>Saved settings are unavailable. Changes will only apply for this session.</Text>
+        )}
         <TextInput
           style={styles.input}
           value={apiBase}
           onChangeText={setApiBase}
+          editable={settingsStatus !== "loading"}
           autoCapitalize="none"
           placeholder="http://192.168.x.x:8712"
           placeholderTextColor="#94a3b8"
@@ -252,6 +270,8 @@ export default function App() {
           style={styles.input}
           value={pairingToken}
           onChangeText={setPairingToken}
+          editable={settingsStatus !== "loading"}
+          secureTextEntry
           autoCapitalize="none"
           placeholder="Pairing token from Windows companion"
           placeholderTextColor="#94a3b8"
@@ -260,6 +280,7 @@ export default function App() {
           style={styles.input}
           value={driveSource}
           onChangeText={setDriveSource}
+          editable={settingsStatus !== "loading"}
           autoCapitalize="none"
           placeholder="D:\ or JF external drive path"
           placeholderTextColor="#94a3b8"
@@ -268,6 +289,7 @@ export default function App() {
           style={styles.input}
           value={icloudSource}
           onChangeText={setIcloudSource}
+          editable={settingsStatus !== "loading"}
           autoCapitalize="none"
           placeholder="Windows iCloud JF LIFE folder (optional)"
           placeholderTextColor="#94a3b8"

@@ -1,6 +1,6 @@
 # JF ALL ROUND CARPENTRY / JF LIFE
 
-This repository now includes a local sync tool to link files from your computer (for example iCloud + `D:` external drive), sort them into library areas, generate a manifest, and push to GitHub.
+JF LIFE links selected folders from your computer, sorts files into library areas, and generates a searchable manifest. Use the Windows companion for private records and the public GitHub Pages app for its browser interface.
 
 ## Repository map (everything linked)
 
@@ -67,7 +67,7 @@ This repository now includes a local sync tool to link files from your computer 
   - `Course`
   - `Needs-review`
 - Generates `Organisation/latest/File-Library-Manifest.json`
-- Optionally commits and pushes to GitHub
+- Can publish reviewed files when the configured GitHub push destination is verified as private
 
 ## Quick start (Windows PowerShell)
 
@@ -76,22 +76,16 @@ Run from this repository folder on your own PC:
 ```powershell
 python .\scripts\jf_life_link.py `
   --source "iCloud=C:\Users\<you>\iCloudDrive\JF LIFE" `
-  --source "ExternalD=D:\JF LIFE" `
-  --git-commit `
-  --git-push
+  --source "ExternalD=D:\JF LIFE"
 ```
 
-Or use the helper batch file:
+Both `scripts\RUN-JF-LINK.cmd` and `.\scripts\connect_jf_life.ps1`
+build the library locally by default.
 
-```bat
-scripts\RUN-JF-LINK.cmd
-```
-
-Or PowerShell helper:
-
-```powershell
-.\scripts\connect_jf_life.ps1 -Push
-```
+For a reviewed Git commit or push, set Git's `origin` push destination to a private
+GitHub repository and authenticate GitHub CLI (`gh auth login`). To publish, run
+`scripts\RUN-JF-LINK.cmd --git-commit --git-push` or add `-Push` to the PowerShell
+helper.
 
 The launchers use the Windows Python launcher (`py -3`) when available and fall
 back to `python`. To inspect a physical drive before publishing anything, preview
@@ -112,7 +106,7 @@ after checking the summary.
 
 Physical drives are not mounted inside Copilot or GitHub's cloud environment.
 Run that helper on the Windows PC connected to `JF (D:)`; the cloud agent can
-then work with the linked files only after the script commits and pushes them.
+then work with the linked files after they are published to a verified private repository.
 
 If Git is not installed yet, run this from **any** PowerShell window to auto-install Git (via winget), clone/update the repo, and run the linker:
 
@@ -123,7 +117,7 @@ Invoke-WebRequest $u -OutFile $f
 powershell -ExecutionPolicy Bypass -File $f -IncludeLarge
 ```
 
-When `-ExternalDPath` points to another drive, bootstrap now places/clones the repo on that drive automatically to avoid filling `C:`.
+When `-ExternalDPath` points to another drive, bootstrap places the checkout on that drive to avoid filling `C:`. Add `-Push` only for a verified private destination.
 
 Preview a drive without copying or publishing:
 
@@ -187,11 +181,13 @@ python .\scripts\jf_life_link.py `
 
 ## App index
 
-Open `App/Library-Index.html` locally or on GitHub Pages.  
+Open `App/Library-Index.html` locally or on GitHub Pages.
 It reads the manifest file and provides search/filter for your linked files. If
 you opened the page directly from disk, use **Open a local manifest** to select
 `Organisation/latest/File-Library-Manifest.json`. The repository root also links
 to the index, so a GitHub Pages root deployment opens the library directly.
+Pages serves the app shell and an empty manifest. To deploy it, choose **GitHub
+Actions** in the repository's **Settings > Pages**, then run the Pages workflow.
 
 ### Install as an app (iPhone, Android, Windows, Mac)
 
@@ -222,8 +218,8 @@ review plan; it does not delete or move source files. Publishing is explicit:
 scripts\RUN-JF-UPLOAD.cmd -PublishLibrary
 ```
 
-Publishing is blocked while this repository is public. Make the repository
-private before publishing personal JF LIFE sources.
+Publishing requires a verified private GitHub push destination. The default
+public repository can be used for the app code and for local builds.
 
 ## Local Outlook, iPhone, and full-device workflow
 

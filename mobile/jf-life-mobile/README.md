@@ -16,9 +16,9 @@ This is the iPhone-first app shell that connects to the Windows companion API.
 
 ## Pairing
 
-1. On Windows, run:
+1. From the repository root on Windows, run:
    ```powershell
-   python scripts/jf_life_companion_api.py --state-dir "%LOCALAPPDATA%\JF LIFE"
+   python .\scripts\jf_life_companion_api.py --state-dir "$env:LOCALAPPDATA\JF LIFE"
    ```
 2. Copy the pairing token shown in the Windows companion.
 3. Enter companion host + token in the app, then tap **Verify Pairing**.

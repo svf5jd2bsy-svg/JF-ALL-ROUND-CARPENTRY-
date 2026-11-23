@@ -124,12 +124,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--git-commit",
         action="store_true",
-        help="Create a git commit after linking files.",
+        help="Commit the linked library after verifying a private GitHub destination.",
     )
     parser.add_argument(
         "--git-push",
         action="store_true",
-        help="Push to origin after processing (and optional commit).",
+        help="Commit the linked library and push to verified private GitHub origin destinations.",
     )
     parser.add_argument(
         "--branch",
@@ -254,6 +254,52 @@ def run_git_command(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(args, text=True, check=True, capture_output=True)
 
 
+def require_private_push_destinations() -> None:
+    try:
+        push_urls = run_git_command(
+            ["git", "remote", "get-url", "--push", "--all", "origin"]
+        ).stdout.splitlines()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise ValueError(
+            "Library publishing requires a GitHub push destination on origin."
+        ) from exc
+
+    if not push_urls:
+        raise ValueError("Library publishing requires a GitHub push destination on origin.")
+
+    for url in push_urls:
+        match = re.fullmatch(
+            r"(?:https://github\.com/|git@github\.com:|"
+            r"ssh://git@(?:github\.com|ssh\.github\.com:443)/)"
+            r"([A-Za-z0-9-]+/[A-Za-z0-9_.-]+?)(?:\.git)?/?",
+            url,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            raise ValueError(
+                "Library publishing requires a github.com URL for every origin push destination."
+            )
+
+        try:
+            visibility = subprocess.run(
+                ["gh", "api", "--hostname", "github.com", f"repos/{match.group(1)}", "--jq", ".visibility"],
+                text=True,
+                check=True,
+                capture_output=True,
+                timeout=30,
+            ).stdout.strip()
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise ValueError(
+                "Could not verify the GitHub push destination is private. "
+                "Install and authenticate GitHub CLI and verify access to the repository."
+            ) from exc
+
+        if visibility != "private":
+            raise ValueError(
+                "Library publishing requires every origin push destination to be a private GitHub repository."
+            )
+
+
 def get_current_branch() -> str:
     result = run_git_command(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     return result.stdout.strip()
@@ -312,6 +358,8 @@ def main() -> int:
         source_specs = [parse_source(value) for value in args.source]
         validate_source_labels(source_specs)
         validate_source_destinations(source_specs, [output_root_abs, manifest_abs])
+        if not args.dry_run and (args.git_commit or args.git_push):
+            require_private_push_destinations()
     except (argparse.ArgumentTypeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
