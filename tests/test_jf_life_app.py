@@ -32,10 +32,21 @@ class JfLifeAppTests(unittest.TestCase):
             )
         )
         self.assertEqual(app_json["expo"]["name"], "JF LIFE")
+        self.assertEqual(app_json["expo"]["version"], "1.1.0")
+        self.assertEqual(
+            app_json["expo"]["ios"]["bundleIdentifier"],
+            "com.jflife.mobile",
+        )
         icon = REPO_ROOT / "mobile" / "jf-life-mobile" / "assets" / "icon.png"
         splash = REPO_ROOT / "mobile" / "jf-life-mobile" / "assets" / "splash.png"
         self.assertTrue(icon.is_file())
         self.assertTrue(splash.is_file())
+        eas = json.loads(
+            (REPO_ROOT / "mobile" / "jf-life-mobile" / "eas.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertIn("preview", eas["build"])
 
 
 if __name__ == "__main__":

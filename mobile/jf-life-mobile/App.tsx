@@ -2,6 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Button,
   SafeAreaView,
   ScrollView,
@@ -11,6 +12,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import * as SecureStore from "expo-secure-store";
 
 type Summary = {
   inventory?: {
@@ -58,6 +62,36 @@ export default function App() {
   const [icloudSource, setIcloudSource] = useState("");
   const [message, setMessage] = useState("Connect to your Windows companion API.");
   const [summary, setSummary] = useState<Summary | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      SecureStore.getItemAsync("jf-life-api-base"),
+      SecureStore.getItemAsync("jf-life-pairing-token"),
+      SecureStore.getItemAsync("jf-life-drive-source"),
+      SecureStore.getItemAsync("jf-life-icloud-source"),
+    ]).then(([savedApi, savedToken, savedDrive, savedICloud]) => {
+      if (savedApi) setApiBase(savedApi);
+      if (savedToken) setPairingToken(savedToken);
+      if (savedDrive) setDriveSource(savedDrive);
+      if (savedICloud) setIcloudSource(savedICloud);
+    }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    SecureStore.setItemAsync("jf-life-api-base", apiBase).catch(() => undefined);
+  }, [apiBase]);
+
+  useEffect(() => {
+    SecureStore.setItemAsync("jf-life-pairing-token", pairingToken).catch(() => undefined);
+  }, [pairingToken]);
+
+  useEffect(() => {
+    SecureStore.setItemAsync("jf-life-drive-source", driveSource).catch(() => undefined);
+  }, [driveSource]);
+
+  useEffect(() => {
+    SecureStore.setItemAsync("jf-life-icloud-source", icloudSource).catch(() => undefined);
+  }, [icloudSource]);
 
   const call = async <T,>(
     path: string,
@@ -107,10 +141,58 @@ export default function App() {
     sources: sourceSpecs(),
   });
 
-  const publishLibrary = () => run("Publish library", "/run/library-publish", {
-    sources: sourceSpecs(),
-    publish_confirmed: "PUBLISH_JF_LIFE",
-  });
+  const publishLibrary = () => {
+    Alert.alert(
+      "Publish JF LIFE library",
+      "This commits and pushes selected sources to the private GitHub repository. Continue only after review.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Publish",
+          style: "destructive",
+          onPress: () => run("Publish library", "/run/library-publish", {
+            sources: sourceSpecs(),
+            publish_confirmed: "PUBLISH_JF_LIFE",
+          }),
+        },
+      ]
+    );
+  };
+
+  const uploadPhoneFiles = async () => {
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled) return;
+      setLoading(true);
+      for (const asset of picked.assets) {
+        if ((asset.size || 0) > 95 * 1024 * 1024) {
+          throw new Error(`${asset.name} is larger than 95 MB.`);
+        }
+        const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await call("/run/upload", {
+          method: "POST",
+          body: JSON.stringify({
+            name: asset.name,
+            relative_path: asset.name,
+            size_bytes: asset.size || 0,
+            mime_type: asset.mimeType || "application/octet-stream",
+            base64,
+          }),
+        });
+      }
+      setMessage(`Uploaded ${picked.assets.length} file(s) to private JF LIFE state.`);
+    } catch (error) {
+      setMessage(`Upload failed: ${(error as Error).message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const refreshSummary = async () => {
     setLoading(true);
@@ -217,6 +299,9 @@ export default function App() {
           </View>
           <View style={styles.row}>
             <Button title="Publish library" onPress={publishLibrary} />
+          </View>
+          <View style={styles.row}>
+            <Button title="Upload iPhone/iCloud files" onPress={uploadPhoneFiles} />
           </View>
         </View>
 
