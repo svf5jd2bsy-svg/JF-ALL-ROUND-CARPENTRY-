@@ -71,6 +71,24 @@ JF LIFE links selected folders from your computer, sorts files into library area
 
 ## Quick start (Windows PowerShell)
 
+Use the same selected D: and iCloud folders for local review and live sync.
+Run `RUN-JF-LIFE-LOCAL.cmd` for the first inventory, duplicate plan and dashboard.
+Then run `RUN-JF-LIVE-SYNC.cmd` with those paths to keep the inventory and dashboard
+current. Use `-Cycles 1` to check the setup once. Use `-Cycles 0` to keep the
+window running. The reviewed recovery and Outlook plans are kept across cycles.
+Refresh either with the matching `-RefreshRecoveryPlan` or `-RefreshOutlookPlan`
+option on the local launcher.
+
+The GitHub repository carries the library app and Copilot configuration.
+Review source files locally, then use **Upload & auto file** in the private JF
+LIFE organiser for originals needed there. A GitHub library push requires a
+reviewed set and a verified private destination.
+
+Set `JF_LIFE_PYTHON` to the full path of a portable Python executable if it is
+outside PATH. All three launchers support it. The batch linker also accepts
+`JF_LIFE_DRIVE_SOURCE` and `JF_LIFE_ICLOUD_SOURCE` to preview or build from
+the same selected folders.
+
 Run from this repository folder on your own PC:
 
 ```powershell
@@ -198,9 +216,8 @@ The library is an installable Progressive Web App, not just a webpage:
   the app shell.
 - **Android / Chrome / Edge:** open the site and use **Install app** from the
   browser menu (or the install icon in the address bar).
-- The app shell ([manifest](App/manifest.webmanifest) +
-  [service worker](App/sw.js)) caches the interface; library data always
-  loads fresh from the network when available.
+- The [service worker](App/sw.js) caches the shell and the last index its
+  server allowed it to store. It checks the network first for the index.
 
 ### Upload JF LIFE, iCloud, D:, and ChatGPT sources
 

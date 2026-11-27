@@ -1,5 +1,6 @@
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,50 @@ from jf_life_outlook import (  # noqa: E402
     fetch_outlook_inventory,
 )
 from jf_life_recovery import approved_recovery_copies, build_plan  # noqa: E402
+
+
+class LiveSyncTests(unittest.TestCase):
+    def run_sync(self, state: Path, drive: Path, icloud: Path, *flags: str):
+        return subprocess.run(
+            [
+                sys.executable, "-I", str(SCRIPTS / "run_jf_life.py"),
+                str(SCRIPTS / "jf_life_live_sync.py"),
+                "--state-dir", str(state), "--cycles", "1",
+                "--source", f"DriveD={drive}", "--source", f"iCloud={icloud}", *flags,
+            ],
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+
+    def test_live_sync_keeps_review_and_stops_publication_after_a_source_disconnects(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            drive, icloud, state = (root / name for name in ("drive", "icloud", "state"))
+            drive.mkdir()
+            icloud.mkdir()
+            (drive / "quote.txt").write_text("Work fixture", encoding="utf-8")
+            (icloud / "copy.txt").write_text("Work fixture", encoding="utf-8")
+
+            first = self.run_sync(state, drive, icloud)
+            self.assertEqual(first.returncode, 0, first.stderr)
+            plan_path = state / "recovery-plan.json"
+            plan = read_json(plan_path)
+            plan["groups"][0]["review_note"] = "Keep this review"
+            atomic_write_json(plan_path, plan)
+            reviewed = plan_path.read_bytes()
+
+            (drive / "new.txt").write_text("Another fixture", encoding="utf-8")
+            again = self.run_sync(state, drive, icloud)
+            self.assertEqual(again.returncode, 0, again.stderr)
+            self.assertEqual(plan_path.read_bytes(), reviewed)
+            self.assertEqual(read_json(state / "inventory.json")["summary"]["files_inventoried"], 3)
+
+            icloud.rename(root / "disconnected")
+            partial = self.run_sync(state, drive, icloud, "--publish-library")
+            self.assertEqual(partial.returncode, 1, partial.stderr)
+            status = read_json(state / "live-sync-status.json")
+            self.assertIn({"name": "source-coverage", "ok": False}, status["steps"])
+            self.assertNotIn("library-publish", [step["name"] for step in status["steps"]])
+            self.assertEqual(plan_path.read_bytes(), reviewed)
 
 
 class LocalInventoryTests(unittest.TestCase):

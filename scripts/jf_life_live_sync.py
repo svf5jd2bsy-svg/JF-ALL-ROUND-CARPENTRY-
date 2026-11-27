@@ -2,20 +2,22 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
+import sys
 import time
 from pathlib import Path
 
 from jf_life_integrations import stripe_status, xero_status
-from jf_life_local import atomic_write_json, fail, resolve_state_dir
-
-import subprocess
-import sys
+from jf_life_local import atomic_write_json, fail, read_json, resolve_state_dir
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def run_python(script: str, *arguments: str) -> tuple[int, str, str]:
-    command = [sys.executable, str(REPO_ROOT / script), *arguments]
+    command = [
+        sys.executable, str(REPO_ROOT / "scripts/run_jf_life.py"),
+        str(REPO_ROOT / script), *arguments,
+    ]
     completed = subprocess.run(
         command,
         text=True,
@@ -73,13 +75,29 @@ def run_cycle(args: argparse.Namespace, cycle_index: int, state_dir: Path) -> di
         *sources,
         *filters,
     )
-    recovery_plan_ok = record_step(
-        "recovery-plan", "scripts/jf_life_recovery.py", "plan", "--state-dir", str(state_dir)
+    complete_inventory = False
+    if inventory_ok:
+        inventory = read_json(state_dir / "inventory.json")
+        complete_inventory = not any(
+            item["reason"] in {"source_missing", "walk_failed", "read_failed"}
+            for item in inventory["skipped"]
+        )
+        steps.append({"name": "source-coverage", "ok": complete_inventory})
+
+    # The one-time local command owns explicit plan refresh. A continuous
+    # scan must keep the user's decisions and previously recorded copies.
+    recovery_plan_ok = complete_inventory and (
+        (state_dir / "recovery-plan.json").is_file()
+        or record_step(
+            "recovery-plan", "scripts/jf_life_recovery.py", "plan", "--state-dir", str(state_dir)
+        )
     )
     recovery_apply_args = ["apply", "--state-dir", str(state_dir)]
     if args.apply_recovery_copies:
         recovery_apply_args.append("--apply")
-    recovery_apply_ok = record_step("recovery-apply", "scripts/jf_life_recovery.py", *recovery_apply_args)
+    recovery_apply_ok = recovery_plan_ok and record_step(
+        "recovery-apply", "scripts/jf_life_recovery.py", *recovery_apply_args
+    )
 
     outlook_ok = True
     if args.outlook_client_id.strip():
@@ -101,13 +119,16 @@ def run_cycle(args: argparse.Namespace, cycle_index: int, state_dir: Path) -> di
                 str(state_dir),
                 "inventory",
             )
-            and record_step(
-                "outlook-plan",
-                "scripts/jf_life_outlook.py",
-                "--state-dir",
-                str(state_dir),
-                "plan",
-                "--all-unread",
+            and (
+                (state_dir / "outlook-actions.json").is_file()
+                or record_step(
+                    "outlook-plan",
+                    "scripts/jf_life_outlook.py",
+                    "--state-dir",
+                    str(state_dir),
+                    "plan",
+                    "--all-unread",
+                )
             )
             and record_step(
                 "outlook-apply",
@@ -127,7 +148,7 @@ def run_cycle(args: argparse.Namespace, cycle_index: int, state_dir: Path) -> di
     library_publish_ok = True
     if args.publish_library:
         library_args = [*sources, *filters, "--git-commit", "--git-push"]
-        library_publish_ok = record_step(
+        library_publish_ok = complete_inventory and record_step(
             "library-publish",
             "scripts/jf_life_link.py",
             *library_args,
@@ -195,7 +216,7 @@ def main() -> int:
     while True:
         try:
             status = run_cycle(args, cycle, state_dir)
-        except ValueError as exc:
+        except (OSError, ValueError) as exc:
             return fail(str(exc))
         print(f"Cycle {cycle}: {'OK' if status['ok'] else 'FAILED'}")
         if args.cycles > 0 and cycle >= args.cycles:
