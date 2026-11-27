@@ -22,6 +22,12 @@ $repoRoot = Resolve-Path (Join-Path $scriptDir "..")
 Set-Location $repoRoot
 
 function Get-PythonRunner {
+    if ($env:JF_LIFE_PYTHON) {
+        if (-not (Test-Path -LiteralPath $env:JF_LIFE_PYTHON -PathType Leaf)) {
+            throw "JF_LIFE_PYTHON does not point to a Python executable."
+        }
+        return @{ Exe = $env:JF_LIFE_PYTHON; Prefix = @() }
+    }
     if (Get-Command py -ErrorAction SilentlyContinue) {
         return @{ Exe = "py"; Prefix = @("-3") }
     }
@@ -33,7 +39,7 @@ function Get-PythonRunner {
 
 function Invoke-JFPython([string[]]$Arguments) {
     $runner = Get-PythonRunner
-    & $runner.Exe @($runner.Prefix + $Arguments)
+    & $runner.Exe @($runner.Prefix + @("scripts/run_jf_life.py") + $Arguments)
     if ($LASTEXITCODE -ne 0) {
         throw "JF LIFE local command failed with exit code $LASTEXITCODE"
     }
